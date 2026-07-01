@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# aibes-agent local state
+.aibes-agent/sessions/

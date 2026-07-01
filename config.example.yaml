@@ -1,3 +1,21 @@
+# Example aibes-agent configuration for v0.3.0
+
+llm:
+  base_url: "http://192.168.2.179:1234/v1"
+  api_key: "dummy"
+  model: "qwen/qwen3.6-35b-a3b"
+  timeout: 120.0
+  max_retries: 2
+  retry_delay: 1.0
+
+router:
+  default: "qwen/qwen3.6-35b-a3b"
+  rules:
+    - pattern: "^(write|edit|create).*"
+      model: "qwen/qwen3-coder-plus-32k"
+    - pattern: "^(search|read|analyze).*"
+      model: "qwen/qwen3.6-35b-a3b"
+
 permissions:
   mode: auto
   rules:
@@ -34,3 +52,22 @@ permissions:
     - action: deny
       resource_type: shell
       pattern: "^rm -rf /.*"
+
+skills:
+  auto_load: true
+  paths:
+    - ".aibes-agent/skills"
+
+mcp_servers:
+  filesystem:
+    transport: stdio
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+
+session:
+  store: file
+  path: ".aibes-agent/sessions"
+
+web:
+  host: "127.0.0.1"
+  port: 8000

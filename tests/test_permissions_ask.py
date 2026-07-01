@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from minagent.permissions.engine import PermissionEngine, PermissionRule, cli_ask_callback
-from minagent.tools.base import ToolContext
+from aibes_agent.permissions.engine import PermissionEngine, PermissionRule, cli_ask_callback
+from aibes_agent.tools.base import ToolContext
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ async def test_default_without_callback_auto_allows(ctx):
 
 @pytest.mark.asyncio
 async def test_yes_to_all_env(ctx, monkeypatch):
-    monkeypatch.setenv("MINAGENT_YES_TO_ALL", "1")
+    monkeypatch.setenv("AIBES_AGENT_YES_TO_ALL", "1")
     engine = PermissionEngine.default()
     assert await engine.check("Bash", {"command": "rm -rf /"}, ctx)
 

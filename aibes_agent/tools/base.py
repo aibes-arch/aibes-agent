@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generic, Optional, Type, TypeVar
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from minagent.core.cache import ToolResultCache
+    from aibes_agent.core.cache import ToolResultCache
 
 InputT = TypeVar("InputT", bound=BaseModel)
 

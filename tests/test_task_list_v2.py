@@ -1,7 +1,7 @@
 import pytest
 
-from minagent.tools.base import ToolContext
-from minagent.tools.task import TaskListTool
+from aibes_agent.tools.base import ToolContext
+from aibes_agent.tools.task import TaskListTool
 
 
 @pytest.fixture

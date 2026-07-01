@@ -1,4 +1,4 @@
-from minagent.core.stats import RunStats
+from aibes_agent.core.stats import RunStats
 
 
 def test_stats_update_from_usage():

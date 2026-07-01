@@ -5,7 +5,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from minagent.tools.base import Tool, ToolContext, ToolResult
+from aibes_agent.tools.base import Tool, ToolContext, ToolResult
 
 
 class BashInput(BaseModel):

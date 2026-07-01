@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from minagent.core.llm import LLMClient
-from minagent.permissions.engine import PermissionEngine
-from minagent.tools.base import Tool, ToolContext, ToolResult
+from aibes_agent.core.llm import LLMClient
+from aibes_agent.permissions.engine import PermissionEngine
+from aibes_agent.tools.base import Tool, ToolContext, ToolResult
 
 if TYPE_CHECKING:
-    from minagent.core.engine import AgentConfig, AgentLoop
-    from minagent.core.tool_registry import ToolRegistry
+    from aibes_agent.core.engine import AgentConfig, AgentLoop
+    from aibes_agent.core.tool_registry import ToolRegistry
 
 
 @dataclass
@@ -67,7 +67,7 @@ class AgentTool(Tool[AgentInput]):
 
     def _build_registry(self, profile: AgentProfile) -> "ToolRegistry":
         """根据 profile 挑选工具构建注册表。"""
-        from minagent.core.tool_registry import ToolRegistry
+        from aibes_agent.core.tool_registry import ToolRegistry
 
         registry = ToolRegistry()
         tool_names = profile.tools or list(self.tool_pool.keys())
@@ -79,7 +79,7 @@ class AgentTool(Tool[AgentInput]):
         return registry
 
     async def call(self, input: AgentInput, context: ToolContext) -> ToolResult:
-        from minagent.core.engine import AgentConfig, AgentLoop
+        from aibes_agent.core.engine import AgentConfig, AgentLoop
 
         profile = self.profiles.get(input.agent_profile)
         if profile is None:

@@ -5,7 +5,7 @@ import sys
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
-from minagent import (
+from aibes_agent import (
     AgentConfig,
     AgentLoop,
     BashTool,
@@ -26,7 +26,7 @@ async def main():
     llm = LLMClient(
         base_url=os.getenv("OPENAI_BASE_URL", "http://192.168.2.179:1234/v1"),
         api_key=os.getenv("OPENAI_API_KEY", "dummy"),
-        model=os.getenv("MINAGENT_MODEL", "qwen3-coder-plus-32k"),
+        model=os.getenv("AIBES_AGENT_MODEL", "qwen3-coder-plus-32k"),
     )
 
     # 2. 创建工具注册表
@@ -67,7 +67,7 @@ When given a task, break it down into steps, use tools to gather information, an
         tool_context=tool_context,
     )
 
-    task = "请查看 minagent 项目结构，列出所有 Python 文件，并给出这个项目的简要说明。"
+    task = "请查看 aibes_agent 项目结构，列出所有 Python 文件，并给出这个项目的简要说明。"
     print(f"Task: {task}\n")
     print("=" * 60)
 

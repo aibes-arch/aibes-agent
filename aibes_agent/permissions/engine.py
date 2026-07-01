@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from minagent.tools.base import ToolContext
+from aibes_agent.tools.base import ToolContext
 
 OnAskCallback = Callable[[str], Awaitable[bool]]
 
@@ -56,7 +56,7 @@ class PermissionEngine:
         interactive: bool = False,
     ) -> "PermissionEngine":
         # 如果命令行传了 --yes-to-all，自动通过所有 ask
-        if on_ask is None and os.getenv("MINAGENT_YES_TO_ALL"):
+        if on_ask is None and os.getenv("AIBES_AGENT_YES_TO_ALL"):
             on_ask = _auto_yes_callback
         # 显式要求交互式时，使用命令行提示
         if on_ask is None and interactive:

@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from minagent.core.retry import async_retry
-from minagent.tools.base import Tool, ToolContext, ToolResult
+from aibes_agent.core.retry import async_retry
+from aibes_agent.tools.base import Tool, ToolContext, ToolResult
 
 
 class ToolRegistry:

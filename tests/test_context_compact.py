@@ -1,7 +1,7 @@
 import pytest
 
-from minagent.core.context import ContextWindow, Message
-from minagent.core.llm import LLMClient, LLMResponse
+from aibes_agent.core.context import ContextWindow, Message
+from aibes_agent.core.llm import LLMClient, LLMResponse
 
 
 class FakeLLMClient(LLMClient):

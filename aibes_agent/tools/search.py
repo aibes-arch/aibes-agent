@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from minagent.tools.base import Tool, ToolContext, ToolResult
+from aibes_agent.tools.base import Tool, ToolContext, ToolResult
 
 
 class GrepInput(BaseModel):

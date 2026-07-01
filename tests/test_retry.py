@@ -1,6 +1,6 @@
 import pytest
 
-from minagent.core.retry import async_retry
+from aibes_agent.core.retry import async_retry
 
 
 @pytest.mark.asyncio

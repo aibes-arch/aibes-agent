@@ -1,6 +1,6 @@
-# minagent 版本演进计划
+# aibes-agent 版本演进计划
 
-> **版本**: 0.1.0  
+> **版本**: 0.3.0  
 > **最后更新**: 2026-07-01  
 > **关联文档**: [架构设计](./ARCHITECTURE.md)、[模块设计](./MODULE_DESIGN.md)
 
@@ -8,7 +8,7 @@
 
 ## 1. 版本策略
 
-`minagent` 采用**语义化版本**（SemVer）：
+`aibes-agent` 采用**语义化版本**（SemVer）：
 
 - **MAJOR**：不兼容的 API 变更。
 - **MINOR**：新增功能，保持向后兼容。
@@ -24,7 +24,7 @@
 |-----|------|------|---------|
 | **v0.1.0** | MVP：Agent Loop + 基础工具 + 权限系统 | ✅ 已完成 | 2026-07 |
 | **v0.2.0** | 子 Agent、上下文压缩增强、任务管理升级、权限 ask 交互、工具缓存、重试、统计 | ✅ 已完成 | 2026-07 |
-| **v0.3.0** | MCP 支持、Web UI、Skill 系统 | 📋 规划中 | 2026-Q4 |
+| **v0.3.0** | MCP 支持、Web UI、Skill 系统 | ✅ 已完成 | 2026-07 |
 | **v0.4.0** | 领域工具包（钻井工程、代码审查） | 📋 规划中 | 2027-Q1 |
 | **v1.0.0** | 稳定版：完整测试、文档、生产可用 | 📋 远期 | 待定 |
 
@@ -51,7 +51,7 @@
 | `tools.shell` | `Bash`（基于 `asyncio.create_subprocess_shell`） |
 | `tools.task` | 简单任务列表 |
 | `permissions.engine` | 三级权限模式（ask / auto / full_auto） |
-| `cli` | `minagent <script.py>` 命令行入口 |
+| `cli` | `aibes-agent <script.py>` 命令行入口 |
 | 日志与事件流 | `loguru` + 事件流，支持可观测性 |
 
 ### 3.3 已知限制
@@ -68,7 +68,7 @@
 
 ### 4.1 目标
 
-让 `minagent` 能处理更复杂的任务：任务分解、子 Agent 协作、更智能的上下文管理。
+让 `aibes-agent` 能处理更复杂的任务：任务分解、子 Agent 协作、更智能的上下文管理。
 
 ### 4.2 计划功能
 
@@ -107,7 +107,7 @@ class AgentInput(BaseModel):
 
 ### 5.1 目标
 
-扩展 `minagent` 的接入能力和易用性：接入外部工具生态、提供图形化界面、支持项目级技能配置。
+扩展 `aibes-agent` 的接入能力和易用性：接入外部工具生态、提供图形化界面、支持项目级技能配置。
 
 ### 5.2 计划功能
 
@@ -115,14 +115,14 @@ class AgentInput(BaseModel):
 |-----|------|--------|
 | **MCP 客户端** | 通过 [Model Context Protocol](https://modelcontextprotocol.io/) 调用外部 MCP 服务器 | P0 |
 | **Web UI** | 基于 FastAPI + SSE/WebSocket 的实时 Web 界面 | P0 |
-| **Skill 系统** | 按项目加载 `.minagent/skills/` 下的自定义 prompt 和工具组合 | P0 |
-| **配置文件化** | 支持 `minagent.yaml` 配置 LLM、工具、权限、Skill | P1 |
+| **Skill 系统** | 按项目加载 `.aibes-agent/skills/` 下的自定义 prompt 和工具组合 | P0 |
+| **配置文件化** | 支持 `aibes-agent.yaml` 配置 LLM、工具、权限、Skill | P1 |
 | **会话持久化** | 保存/恢复对话历史、任务状态 | P1 |
 | **多模型路由** | 根据任务类型选择不同模型 | P2 |
 
 ### 5.3 Skill 系统草案
 
-项目目录下创建 `.minagent/skills/code-review/skill.yaml`：
+项目目录下创建 `.aibes-agent/skills/code-review/skill.yaml`：
 
 ```yaml
 name: code-review
@@ -146,7 +146,7 @@ tools:
 
 ### 6.1 目标
 
-将 `minagent` 从通用框架扩展为特定领域的实用 Agent。
+将 `aibes-agent` 从通用框架扩展为特定领域的实用 Agent。
 
 ### 6.2 计划领域
 
@@ -158,7 +158,7 @@ tools:
 
 ### 6.3 领域工具设计原则
 
-- 领域工具包以**可选依赖**形式提供，例如 `pip install minagent[drilling]`。
+- 领域工具包以**可选依赖**形式提供，例如 `pip install aibes-agent[drilling]`。
 - 每个领域包包含自己的 tools、skills、prompts 和示例脚本。
 - 不影响核心框架的轻量性。
 
@@ -182,7 +182,7 @@ tools:
 每个版本都会优先实现社区反馈最强烈的功能。如果你有需求，可以：
 
 1. 在 `examples/` 下提交新的使用场景示例。
-2. 为 `minagent.tools` 添加新工具。
+2. 为 `aibes_agent.tools` 添加新工具。
 3. 完善文档和测试。
 
 ---

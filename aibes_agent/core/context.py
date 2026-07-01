@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from minagent.core.llm import LLMClient
+    from aibes_agent.core.llm import LLMClient
 
 
 class Message(BaseModel):

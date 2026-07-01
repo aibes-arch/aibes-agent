@@ -1,16 +1,16 @@
-# minagent — 最小 Python Agent 框架
+# aibes-agent — 最小 Python Agent 框架
 
 > 一个受 Claude Code 启发的最小 Agent 框架，用于构建代码分析、文档处理、自动化任务等领域的 Agent。
 >
 > **设计原则**：简单、可扩展、可验证。
 >
-> **版本**: 0.2.0
+> **版本**: 0.3.0
 
 ---
 
 ## 一、项目定位
 
-`minagent` 是一个轻量级 Python 框架，让开发者能在几小时内搭建一个具备以下能力的 Agent：
+`aibes-agent` 是一个轻量级 Python 框架，让开发者能在几小时内搭建一个具备以下能力的 Agent：
 
 - 通过自然语言接收任务
 - 调用工具（读文件、写文件、执行命令、搜索代码等）
@@ -18,6 +18,11 @@
 - 可控的权限系统
 - 可扩展的工具注册机制
 - 基础的上下文管理
+- **Skill 系统**：按项目/领域加载 prompt 与工具组合
+- **MCP 客户端**：接入外部 Model Context Protocol 工具服务器
+- **Web UI**：基于 FastAPI + SSE 的实时 Web 界面
+- **会话持久化**：保存/恢复对话历史与任务状态
+- **多模型路由**：根据任务选择不同模型
 
 **不是** 要替代 Claude Code，而是：
 - 快速验证 Agent 思路
@@ -39,7 +44,7 @@
                │
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Agent Engine (minagent.core.engine)                         │
+│  Agent Engine (aibes_agent.core.engine)                         │
 │  - 管理 Agent 生命周期                                        │
 │  - 编排 LLM 调用与工具执行                                    │
 │  - 维护 conversation context                                  │
@@ -48,7 +53,7 @@
                │
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  LLM Provider (minagent.core.llm)                            │
+│  LLM Provider (aibes_agent.core.llm)                            │
 │  - OpenAI 兼容 API                                            │
 │  - function calling / tool calls                              │
 │  - 支持本地模型（qwen3-coder-plus 等）                        │
@@ -56,7 +61,7 @@
                │
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Tool Registry (minagent.core.tool_registry)                 │
+│  Tool Registry (aibes_agent.core.tool_registry)                 │
 │  - 工具注册与发现                                             │
 │  - schema 生成                                                │
 │  - 并发/串行编排                                              │
@@ -64,7 +69,7 @@
                │
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Tools (minagent.tools.*)                                    │
+│  Tools (aibes_agent.tools.*)                                    │
 │  - FileReadTool, FileWriteTool, FileEditTool                 │
 │  - BashTool, GrepTool, GlobTool, GitTool                     │
 │  - TaskListTool, AgentTool (子 Agent)                         │
@@ -72,7 +77,7 @@
                │
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Permission Engine (minagent.permissions.engine)             │
+│  Permission Engine (aibes_agent.permissions.engine)             │
 │  - 规则匹配                                                   │
 │  - 风险分类                                                   │
 │  - 交互式确认 / 自动模式                                       │
@@ -94,6 +99,9 @@
 | `tools.search` | Grep/Glob 搜索工具 |
 | `tools.git` | Git 操作工具 |
 | `tools.task` | 任务列表工具 |
+| `skills` | Skill 加载与构建 |
+| `mcp` | MCP 客户端与工具适配 |
+| `web` | FastAPI + SSE Web UI |
 | `permissions.engine` | 权限规则引擎 |
 | `permissions.rules` | 文件/Shell 规则定义 |
 
@@ -166,9 +174,14 @@ AgentLoop.run(task)
 | 权限控制 | 文件/Shell 操作权限检查 | P0 |
 | 上下文管理 | 消息历史、system prompt、token 估算 | P0 |
 | 错误处理 | 工具失败、API 失败、超时恢复 | P0 |
-| 事件流 | 实时输出工具执行事件 | P1 |
-| 子 Agent | 支持简单的子 Agent 调用 | P2 |
-| 上下文压缩 | 超长消息自动压缩 | P2 |
+| 事件流 | 实时输出工具执行事件 | P0 |
+| 子 Agent | 支持简单的子 Agent 调用 | P0 |
+| 上下文压缩 | 超长消息自动压缩 | P0 |
+| Skill 系统 | 按项目加载 prompt 与工具组合 | P0 |
+| MCP 客户端 | 接入外部 MCP 服务器 | P0 |
+| Web UI | FastAPI + SSE 实时界面 | P0 |
+| 会话持久化 | 保存/恢复对话历史 | P1 |
+| 多模型路由 | 按任务选择模型 | P1 |
 
 ### 4.2 工具清单（MVP）
 
@@ -202,7 +215,7 @@ permissions:
     - deny: write
       path: /c/aibes/aibes-vault/**
     - allow: write
-      path: /c/aibes/minagent/**
+      path: /c/aibes/aibes-agent/**
   shell:
     - allow: "git .*"
     - deny: "rm -rf /"
@@ -214,16 +227,19 @@ permissions:
 ## 五、快速开始
 
 ```bash
-# 1. 安装依赖
-pip install -e .
+# 1. 安装依赖（包含 Web UI 与 MCP 支持）
+pip install -e ".[dev,web,mcp]"
 
-# 2. 配置环境变量（或 config.yaml）
+# 2. 配置环境变量，或创建 aibes-agent.yaml
 export OPENAI_BASE_URL=http://192.168.2.179:1234/v1
 export OPENAI_API_KEY=sk-xxx
-export MINAGENT_MODEL=qwen3-coder-plus-32k
+export AIBES_AGENT_MODEL=qwen/qwen3.6-35b-a3b
 
 # 3. 运行示例
-minagent examples/readme_demo.py
+aibes-agent run examples/readme_demo.py
+
+# 4. 启动 Web UI
+aibes-agent web --config aibes-agent.yaml --host 127.0.0.1 --port 8000
 ```
 
 ---
@@ -231,42 +247,59 @@ minagent examples/readme_demo.py
 ## 六、文件结构
 
 ```
-minagent/
-├── minagent/
+aibes-agent/
+├── aibes-agent/
 │   ├── __init__.py
+│   ├── cli.py                 # 命令行入口
+│   ├── config.py              # aibes-agent.yaml 配置加载
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── engine.py          # AgentLoop
 │   │   ├── llm.py             # LLM 客户端
 │   │   ├── tool_registry.py   # 工具注册表
 │   │   ├── context.py         # 上下文管理
-│   │   └── events.py          # 事件流
+│   │   ├── cache.py           # 工具结果缓存
+│   │   ├── retry.py           # 异步重试
+│   │   ├── router.py          # 多模型路由
+│   │   ├── session.py         # 会话持久化
+│   │   └── stats.py           # 运行统计
 │   ├── tools/
 │   │   ├── __init__.py
 │   │   ├── base.py            # 工具基类
 │   │   ├── fs.py              # 文件工具
 │   │   ├── shell.py           # Bash 工具
 │   │   ├── search.py          # Grep/Glob 工具
-│   │   ├── git.py             # Git 工具
-│   │   └── task.py            # 任务列表工具
-│   ├── permissions/
-│   │   ├── __init__.py
-│   │   ├── engine.py          # 权限引擎
-│   │   └── rules.py           # 规则定义
-│   └── utils/
+│   │   ├── task.py            # 任务列表工具
+│   │   └── agent.py           # 子 Agent 工具
+│   ├── skills/                # Skill 系统
+│   │   ├── skill.py
+│   │   ├── loader.py
+│   │   └── builder.py
+│   ├── mcp/                   # MCP 客户端
+│   │   ├── client.py
+│   │   └── tool.py
+│   ├── web/                   # Web UI
+│   │   ├── server.py
+│   │   └── runner.py
+│   └── permissions/
 │       ├── __init__.py
-│       ├── tokens.py          # token 估算
-│       └── format.py          # 格式化
+│       └── engine.py          # 权限引擎
 ├── tests/
-│   ├── __init__.py
-│   ├── test_engine.py
 │   ├── test_tools.py
-│   └── test_permissions.py
+│   ├── test_config.py
+│   ├── test_skills.py
+│   ├── test_mcp.py
+│   ├── test_session.py
+│   ├── test_router.py
+│   └── test_web.py
 ├── examples/
-│   ├── __init__.py
 │   ├── readme_demo.py
-│   └── code_review.py
+│   ├── skill_demo.py
+│   └── mcp_demo.py
+├── .aibes-agent/
+│   └── skills/                # 项目级 Skill
 ├── config.example.yaml
+├── aibes-agent.yaml              # 用户配置文件（可选）
 ├── pyproject.toml
 ├── README.md
 └── docs/
@@ -279,7 +312,11 @@ minagent/
     ├── TOOL_DEVELOPMENT.md    # 工具开发指南
     ├── DOMAIN_CASE.md         # 领域案例
     ├── CONTRIBUTING.md        # 贡献指南
-    └── references/            # 参考资料
+    ├── SKILLS.md              # Skill 系统
+    ├── MCP.md                 # MCP 使用
+    ├── WEB_UI.md              # Web UI
+    ├── CONFIG.md              # 配置文件
+    └── SESSION.md             # 会话持久化
 ```
 
 ---
@@ -301,11 +338,9 @@ minagent/
 |------|------|
 | 0.1.0 | MVP：AgentLoop + 基础工具 + 权限系统 |
 | 0.2.0 | 子 Agent、上下文压缩增强、TaskList 增强、权限 ask 交互、工具缓存、重试、统计 |
-| 0.3.0 | MCP 支持、Web UI、Skill 系统 |
-| 0.4.0 | 领域工具包（钻井工程、代码审查） |
-| 0.3.0 | MCP 支持、Web UI、Skill 系统 |
+| 0.3.0 | ✅ MCP 支持、Web UI、Skill 系统 |
 | 0.4.0 | 领域工具包（钻井工程、代码审查） |
 
 ---
 
-*最后更新：2026-06-30*
+*最后更新：2026-07-01*

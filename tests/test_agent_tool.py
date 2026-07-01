@@ -1,8 +1,8 @@
 import pytest
 
-from minagent import AgentProfile, AgentTool, FileReadTool
-from minagent.core.llm import LLMClient, LLMResponse
-from minagent.tools.base import ToolContext
+from aibes_agent import AgentProfile, AgentTool, FileReadTool
+from aibes_agent.core.llm import LLMClient, LLMResponse
+from aibes_agent.tools.base import ToolContext
 
 
 class FakeLLMClient(LLMClient):

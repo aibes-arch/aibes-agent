@@ -2,11 +2,11 @@ import os
 
 import pytest
 
-from minagent.tools.base import ToolContext
-from minagent.tools.fs import FileReadTool, FileWriteTool, FileEditTool
-from minagent.tools.shell import BashTool
-from minagent.tools.search import GlobTool
-from minagent.tools.task import TaskListTool
+from aibes_agent.tools.base import ToolContext
+from aibes_agent.tools.fs import FileReadTool, FileWriteTool, FileEditTool
+from aibes_agent.tools.shell import BashTool
+from aibes_agent.tools.search import GlobTool
+from aibes_agent.tools.task import TaskListTool
 
 
 @pytest.fixture
@@ -102,7 +102,7 @@ async def test_task_list():
 
 @pytest.mark.asyncio
 async def test_tool_registry():
-    from minagent.core.tool_registry import ToolRegistry
+    from aibes_agent.core.tool_registry import ToolRegistry
 
     registry = ToolRegistry()
     registry.register(FileReadTool())

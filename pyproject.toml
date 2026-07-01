@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "minagent"
-version = "0.2.0"
+name = "aibes-agent"
+version = "0.3.0"
 description = "A minimal Python agent framework inspired by Claude Code"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -35,18 +35,28 @@ dev = [
     "black>=24.0",
     "mypy>=1.9.0",
     "rich>=13.7.0",
+    "aibes-agent[web,mcp]",
 ]
 cli = [
     "typer>=0.12.0",
     "rich>=13.7.0",
 ]
+web = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "sse-starlette>=1.8.0",
+    "httpx-sse>=0.4.0",
+]
+mcp = [
+    "mcp>=1.27.0,<2",
+]
 
 [project.scripts]
-minagent = "minagent.cli:app"
+aibes-agent = "aibes_agent.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["minagent*"]
+include = ["aibes_agent*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

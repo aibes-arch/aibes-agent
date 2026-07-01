@@ -1,9 +1,9 @@
 import pytest
 
-from minagent.core.cache import ToolResultCache
-from minagent.core.tool_registry import ToolRegistry
-from minagent.tools.base import ToolContext
-from minagent.tools.fs import FileReadTool, FileWriteTool
+from aibes_agent.core.cache import ToolResultCache
+from aibes_agent.core.tool_registry import ToolRegistry
+from aibes_agent.tools.base import ToolContext
+from aibes_agent.tools.fs import FileReadTool, FileWriteTool
 
 
 @pytest.mark.asyncio

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
-    from minagent.tools.base import ToolResult
+    from aibes_agent.tools.base import ToolResult
 
 
 @dataclass

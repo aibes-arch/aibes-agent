@@ -10,7 +10,7 @@ import sys
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
-from minagent import (
+from aibes_agent import (
     AgentConfig,
     AgentLoop,
     AgentProfile,
@@ -31,7 +31,7 @@ async def main():
     llm = LLMClient(
         base_url=os.getenv("OPENAI_BASE_URL", "http://192.168.2.179:1234/v1"),
         api_key=os.getenv("OPENAI_API_KEY", "dummy"),
-        model=os.getenv("MINAGENT_MODEL", "qwen3-coder-plus-32k"),
+        model=os.getenv("AIBES_AGENT_MODEL", "qwen3-coder-plus-32k"),
     )
 
     file_read = FileReadTool()
@@ -101,7 +101,7 @@ When given a task, decide whether to handle it yourself or delegate it.
         tool_context=tool_context,
     )
 
-    task = "请让 researcher 子 Agent 探索 minagent 项目，列出 Python 文件并给出项目说明。"
+    task = "请让 researcher 子 Agent 探索 aibes_agent 项目，列出 Python 文件并给出项目说明。"
     print(f"Task: {task}\n")
     print("=" * 60)
 

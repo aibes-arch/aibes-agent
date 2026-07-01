@@ -7,7 +7,7 @@ import httpx
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from minagent.core.retry import async_retry
+from aibes_agent.core.retry import async_retry
 
 
 class ChatCompletionRequest(BaseModel):
@@ -34,10 +34,23 @@ class LLMClient:
             base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
         ).rstrip("/")
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
-        self.model = model or os.environ.get("MINAGENT_MODEL", "gpt-4o-mini")
+        self.model = model or os.environ.get("AIBES_AGENT_MODEL", "gpt-4o-mini")
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+
+    def with_model(self, model: Optional[str]) -> "LLMClient":
+        """Return a copy of this client targeting a different model."""
+        if model is None or model == self.model:
+            return self
+        return LLMClient(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            model=model,
+            timeout=self.timeout,
+            max_retries=self.max_retries,
+            retry_delay=self.retry_delay,
+        )
 
     async def chat(
         self,

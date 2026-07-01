@@ -1,7 +1,7 @@
 import pytest
 
-from minagent.core.cache import ToolResultCache
-from minagent.tools.base import ToolResult
+from aibes_agent.core.cache import ToolResultCache
+from aibes_agent.tools.base import ToolResult
 
 
 @pytest.mark.asyncio
