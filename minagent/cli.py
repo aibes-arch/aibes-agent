@@ -1,11 +1,12 @@
 """minagent CLI entry point.
 
 Usage:
-    minagent <script.py> [args...]
+    minagent [--yes-to-all] <script.py> [args...]
 """
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Annotated, Optional
@@ -47,9 +48,22 @@ def _run_script(script_path: Path, script_args: list[str]) -> None:
 @app.command()
 def run(
     script: Annotated[str, typer.Argument(help="Path to the agent script to run")],
-    args: Annotated[Optional[list[str]], typer.Argument(help="Arguments passed to the script")] = None,
+    args: Annotated[
+        Optional[list[str]],
+        typer.Argument(help="Arguments passed to the script"),
+    ] = None,
+    yes_to_all: Annotated[
+        bool,
+        typer.Option(
+            "--yes-to-all",
+            "-y",
+            help="Automatically answer yes to all permission prompts",
+        ),
+    ] = False,
 ) -> None:
     """Run an agent script."""
+    if yes_to_all:
+        os.environ["MINAGENT_YES_TO_ALL"] = "1"
     _run_script(Path(script), args or [])
 
 

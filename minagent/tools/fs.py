@@ -13,7 +13,7 @@ class FileReadInput(BaseModel):
     limit: int = Field(500, description="Maximum number of lines to read")
 
 
-class FileReadTool(Tool):
+class FileReadTool(Tool[FileReadInput]):
     name = "FileRead"
     description = (
         "Read a text file from the local filesystem. Supports offset and limit for large files."
@@ -55,7 +55,7 @@ class FileWriteInput(BaseModel):
     content: str = Field(..., description="Content to write to the file")
 
 
-class FileWriteTool(Tool):
+class FileWriteTool(Tool[FileWriteInput]):
     name = "FileWrite"
     description = "Create or overwrite a file in the local filesystem."
     input_model = FileWriteInput
@@ -86,7 +86,7 @@ class FileEditInput(BaseModel):
     new_string: str = Field(..., description="Replacement string")
 
 
-class FileEditTool(Tool):
+class FileEditTool(Tool[FileEditInput]):
     name = "FileEdit"
     description = "Make a precise edit to a file by replacing old_string with new_string."
     input_model = FileEditInput

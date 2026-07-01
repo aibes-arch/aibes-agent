@@ -7,6 +7,8 @@ import httpx
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from minagent.core.retry import async_retry
+
 
 class ChatCompletionRequest(BaseModel):
     model: str
@@ -25,13 +27,17 @@ class LLMClient:
         api_key: Optional[str] = None,
         model: Optional[str] = None,
         timeout: float = 120.0,
+        max_retries: int = 2,
+        retry_delay: float = 1.0,
     ):
         self.base_url = (
-            base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
         ).rstrip("/")
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-        self.model = model or os.getenv("MINAGENT_MODEL", "gpt-4o-mini")
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+        self.model = model or os.environ.get("MINAGENT_MODEL", "gpt-4o-mini")
         self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
     async def chat(
         self,
@@ -60,16 +66,30 @@ class LLMClient:
             self.model,
             self.timeout,
         )
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                json=payload,
-                headers=headers,
-            )
-            logger.info("LLM response status: {}", response.status_code)
-            response.raise_for_status()
-            data = response.json()
 
+        async def _post() -> httpx.Response:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+                logger.info("LLM response status: {}", response.status_code)
+                response.raise_for_status()
+                return response
+
+        try:
+            response = await async_retry(
+                _post,
+                max_retries=self.max_retries,
+                delay=self.retry_delay,
+                retry_on=(httpx.HTTPError, httpx.NetworkError, TimeoutError),
+            )
+        except httpx.HTTPStatusError as exc:
+            # 超过重试次数后，保留最后一次异常信息
+            raise exc
+
+        data = response.json()
         return LLMResponse.from_openai(data)
 
 
@@ -92,7 +112,7 @@ class LLMResponse:
         return len(self.tool_calls) > 0
 
     def to_message(self) -> Dict[str, Any]:
-        message = {"role": "assistant", "content": self.content}
+        message: Dict[str, Any] = {"role": "assistant", "content": self.content}
         if self.tool_calls:
             message["tool_calls"] = self.tool_calls
         return message

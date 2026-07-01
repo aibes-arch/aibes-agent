@@ -1,8 +1,12 @@
+from minagent.core.cache import ToolResultCache
 from minagent.core.engine import AgentConfig, AgentLoop
 from minagent.core.llm import LLMClient
+from minagent.core.stats import RunStats
 from minagent.core.tool_registry import ToolRegistry
 from minagent.permissions.engine import PermissionEngine
 from minagent.tools import (
+    AgentProfile,
+    AgentTool,
     BashTool,
     FileEditTool,
     FileReadTool,
@@ -28,6 +32,8 @@ __all__ = [
     "ToolRegistry",
     "PermissionEngine",
     "ToolContext",
+    "AgentProfile",
+    "AgentTool",
     "BashTool",
     "FileEditTool",
     "FileReadTool",
@@ -35,4 +41,6 @@ __all__ = [
     "GlobTool",
     "GrepTool",
     "TaskListTool",
+    "ToolResultCache",
+    "RunStats",
 ]

@@ -1,5 +1,9 @@
 import asyncio
 import os
+import sys
+
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")
 
 from minagent import (
     AgentConfig,
@@ -78,6 +82,14 @@ When given a task, break it down into steps, use tools to gather information, an
             print(f"\n[Error] {event['message']}")
         elif event["type"] == "final":
             print(f"\n[Final]\n{event['content']}")
+            stats = event.get("stats")
+            if stats:
+                print(
+                    f"\n[Stats] turns={stats['turn_count']} "
+                    f"llm_calls={stats['llm_call_count']} "
+                    f"tool_calls={stats['tool_call_count']} "
+                    f"tokens={stats['total_tokens']}"
+                )
 
 
 if __name__ == "__main__":

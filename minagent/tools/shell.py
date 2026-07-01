@@ -14,7 +14,7 @@ class BashInput(BaseModel):
     cwd: str = Field("", description="Working directory (empty = use agent cwd)")
 
 
-class BashTool(Tool):
+class BashTool(Tool[BashInput]):
     name = "Bash"
     description = "Execute a shell command. Use for git, testing, builds, file listing, and other shell operations."
     input_model = BashInput

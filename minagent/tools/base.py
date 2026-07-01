@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, Generic, Optional, Type, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from minagent.core.cache import ToolResultCache
+
+InputT = TypeVar("InputT", bound=BaseModel)
 
 
 @dataclass
@@ -14,6 +19,7 @@ class ToolContext:
     cwd: str
     env: Dict[str, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    cache: Optional["ToolResultCache"] = None
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.metadata.get(key, default)
@@ -40,13 +46,13 @@ class ToolResult:
         return ToolResult(success=False, content=content, error=error, metadata=metadata)
 
 
-class Tool(ABC):
+class Tool(ABC, Generic[InputT]):
     """工具基类。"""
 
     name: str = ""
     description: str = ""
-    input_model: Type[BaseModel]
-    output_model: Type[BaseModel] = ToolResult
+    input_model: Type[InputT]
+    output_model: Type[Any] = ToolResult
 
     def __init__(self) -> None:
         if not self.name:
@@ -57,7 +63,6 @@ class Tool(ABC):
     def to_openai_schema(self) -> Dict[str, Any]:
         """转换为 OpenAI function schema。"""
         schema = self.input_model.model_json_schema()
-        # OpenAI 要求 schema 中不要包含 $defs 等高级特性，这里简化处理
         return {
             "type": "function",
             "function": {
@@ -67,15 +72,15 @@ class Tool(ABC):
             },
         }
 
-    def is_read_only(self, input: BaseModel) -> bool:
+    def is_read_only(self, input: InputT) -> bool:
         """是否为只读工具，用于并发控制。"""
         return False
 
-    def is_concurrency_safe(self, input: BaseModel) -> bool:
+    def is_concurrency_safe(self, input: InputT) -> bool:
         """是否可以并发执行。"""
         return self.is_read_only(input)
 
     @abstractmethod
-    async def call(self, input: BaseModel, context: ToolContext) -> ToolResult:
+    async def call(self, input: InputT, context: ToolContext) -> ToolResult:
         """执行工具。"""
         pass

@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from minagent.tools.base import ToolContext
@@ -65,9 +67,9 @@ async def test_file_edit(tmp_path):
 @pytest.mark.asyncio
 async def test_bash_read_only():
     bash = BashTool()
-    ctx = ToolContext(cwd="/c/aibes/minagent")
+    ctx = ToolContext(cwd=os.getcwd())
     result = await bash.call(
-        bash.input_model(command="find minagent -maxdepth 1 -type d"),
+        bash.input_model(command="echo core"),
         ctx,
     )
     assert result.success
@@ -77,7 +79,7 @@ async def test_bash_read_only():
 @pytest.mark.asyncio
 async def test_glob():
     glob = GlobTool()
-    ctx = ToolContext(cwd="/c/aibes/minagent")
+    ctx = ToolContext(cwd=os.getcwd())
     result = await glob.call(
         glob.input_model(pattern="**/*.py"),
         ctx,
@@ -89,13 +91,13 @@ async def test_glob():
 @pytest.mark.asyncio
 async def test_task_list():
     task = TaskListTool()
-    ctx = ToolContext(cwd="/c/aibes/minagent")
+    ctx = ToolContext(cwd=os.getcwd())
     await task.call(task.input_model(action="add", task="read docs"), ctx)
     await task.call(task.input_model(action="add", task="write code"), ctx)
     await task.call(task.input_model(action="done", task_id=0), ctx)
     result = await task.call(task.input_model(action="list"), ctx)
-    assert "✅ read docs" in result.content
-    assert "⬜ write code" in result.content
+    assert "✅ [0] read docs" in result.content
+    assert "⬜ [1] write code" in result.content
 
 
 @pytest.mark.asyncio

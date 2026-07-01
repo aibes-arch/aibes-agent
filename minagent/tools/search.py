@@ -19,7 +19,7 @@ class GrepInput(BaseModel):
     head_limit: int = Field(250, description="Limit number of results")
 
 
-class GrepTool(Tool):
+class GrepTool(Tool[GrepInput]):
     name = "Grep"
     description = "Search file contents using ripgrep (rg)."
     input_model = GrepInput
@@ -82,7 +82,7 @@ class GlobInput(BaseModel):
     path: str = Field("", description="Directory to search in")
 
 
-class GlobTool(Tool):
+class GlobTool(Tool[GlobInput]):
     name = "Glob"
     description = "List files matching a glob pattern."
     input_model = GlobInput

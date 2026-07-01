@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import asyncio
+import json
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from loguru import logger
 
+from minagent.core.cache import ToolResultCache
 from minagent.core.context import ContextWindow, Message
-from minagent.core.llm import LLMClient, LLMResponse
+from minagent.core.llm import LLMClient
+from minagent.core.stats import RunStats
 from minagent.core.tool_registry import ToolRegistry
 from minagent.permissions.engine import PermissionEngine
 from minagent.tools.base import ToolContext
@@ -46,6 +48,9 @@ class AgentLoop:
         self.config = config
         self.permission_engine = permission_engine or PermissionEngine()
         self.tool_context = tool_context or ToolContext(cwd="/")
+        if self.tool_context.cache is None:
+            self.tool_context.cache = ToolResultCache()
+        self.stats = RunStats()
 
     async def run(
         self,
@@ -61,8 +66,10 @@ class AgentLoop:
         yield {"type": "user_task", "content": task}
 
         for turn in range(self.config.max_turns):
+            self.stats.turn_count = turn + 1
+
             if self.config.auto_compact and ctx.should_compact():
-                ctx.compact()
+                await ctx.compact(self.llm)
                 yield {"type": "compact", "message": "Context compacted"}
 
             tools = self.registry.to_openai_schemas()
@@ -72,12 +79,23 @@ class AgentLoop:
                 self.config.max_turns,
                 self.llm.model,
             )
-            response = await self.llm.chat(
-                messages=ctx.to_openai_messages(),
-                tools=tools,
-                max_tokens=self.config.max_tokens_per_turn,
-                temperature=self.config.temperature,
-            )
+
+            try:
+                response = await self.llm.chat(
+                    messages=ctx.to_openai_messages(),
+                    tools=tools,
+                    max_tokens=self.config.max_tokens_per_turn,
+                    temperature=self.config.temperature,
+                )
+            except Exception as exc:
+                error_msg = f"LLM request failed: {exc}"
+                logger.error(error_msg)
+                self.stats.add_error(error_msg)
+                yield {"type": "error", "message": error_msg, "stats": self.stats.to_dict()}
+                return
+
+            self.stats.llm_call_count += 1
+            self.stats.update_from_usage(response.usage)
 
             yield {
                 "type": "llm_response",
@@ -97,7 +115,11 @@ class AgentLoop:
             ctx.add_assistant(response.content, response.tool_calls)
 
             if not response.has_tool_calls():
-                yield {"type": "final", "content": response.content}
+                yield {
+                    "type": "final",
+                    "content": response.content,
+                    "stats": self.stats.to_dict(),
+                }
                 return
 
             # 权限检查
@@ -105,12 +127,20 @@ class AgentLoop:
             for tc in response.tool_calls:
                 tool_name = tc["function"]["name"]
                 arguments = tc["function"].get("arguments", {})
-                permitted = await self.permission_engine.check(
-                    tool_name, arguments, self.tool_context
-                )
+                if isinstance(arguments, str):
+                    arguments = json.loads(arguments)
+                try:
+                    permitted = await self.permission_engine.check(
+                        tool_name, arguments, self.tool_context
+                    )
+                except Exception as exc:
+                    permitted = False
+                    logger.warning("Permission check failed for {}: {}", tool_name, exc)
+
                 if permitted:
                     allowed_tool_calls.append(tc)
                 else:
+                    self.stats.add_error(f"Permission denied: {tool_name}")
                     yield {
                         "type": "permission_denied",
                         "tool_call": tc,
@@ -123,12 +153,23 @@ class AgentLoop:
                     )
 
             if not allowed_tool_calls:
-                yield {"type": "error", "message": "All tool calls were denied"}
+                error_msg = "All tool calls were denied"
+                self.stats.add_error(error_msg)
+                yield {"type": "error", "message": error_msg, "stats": self.stats.to_dict()}
                 return
 
             # 执行工具
             logger.info("Executing {} tool call(s)...", len(allowed_tool_calls))
-            tool_results = await self.registry.execute(allowed_tool_calls, self.tool_context)
+            try:
+                tool_results = await self.registry.execute(allowed_tool_calls, self.tool_context)
+            except Exception as exc:
+                error_msg = f"Tool execution failed: {exc}"
+                logger.error(error_msg)
+                self.stats.add_error(error_msg)
+                yield {"type": "error", "message": error_msg, "stats": self.stats.to_dict()}
+                return
+
+            self.stats.tool_call_count += len(tool_results)
 
             for tr in tool_results:
                 yield {
@@ -139,7 +180,8 @@ class AgentLoop:
                 }
                 ctx.add_tool_result(tr["tool_call_id"], tr["content"], tr["name"])
 
-        yield {
-            "type": "error",
-            "message": f"Reached max turns ({self.config.max_turns})",
-        }
+            yield {"type": "stats", "data": self.stats.to_dict()}
+
+        error_msg = f"Reached max turns ({self.config.max_turns})"
+        self.stats.add_error(error_msg)
+        yield {"type": "error", "message": error_msg, "stats": self.stats.to_dict()}
