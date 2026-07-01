@@ -1,0 +1,36 @@
+permissions:
+  mode: auto
+  rules:
+    - action: allow
+      resource_type: tool
+      pattern: FileRead
+    - action: allow
+      resource_type: tool
+      pattern: Grep
+    - action: allow
+      resource_type: tool
+      pattern: Glob
+    - action: ask
+      resource_type: tool
+      pattern: FileWrite
+    - action: ask
+      resource_type: tool
+      pattern: FileEdit
+    - action: ask
+      resource_type: tool
+      pattern: Bash
+    - action: allow
+      resource_type: tool
+      pattern: TaskList
+    - action: allow
+      resource_type: filesystem
+      pattern: /c/aibes/**
+    - action: deny
+      resource_type: filesystem
+      pattern: /c/Users/Richard/AppData/**
+    - action: allow
+      resource_type: shell
+      pattern: "^git .*"
+    - action: deny
+      resource_type: shell
+      pattern: "^rm -rf /.*"

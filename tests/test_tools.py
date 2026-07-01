@@ -1,0 +1,113 @@
+import pytest
+
+from minagent.tools.base import ToolContext
+from minagent.tools.fs import FileReadTool, FileWriteTool, FileEditTool
+from minagent.tools.shell import BashTool
+from minagent.tools.search import GlobTool
+from minagent.tools.task import TaskListTool
+
+
+@pytest.fixture
+def tmp_path(tmp_path):
+    return tmp_path
+
+
+@pytest.mark.asyncio
+async def test_file_read_write(tmp_path):
+    read_tool = FileReadTool()
+    write_tool = FileWriteTool()
+    ctx = ToolContext(cwd=str(tmp_path))
+
+    test_file = tmp_path / "test.txt"
+    result = await write_tool.call(
+        write_tool.input_model(file_path=str(test_file), content="hello world"),
+        ctx,
+    )
+    assert result.success
+
+    result = await read_tool.call(
+        read_tool.input_model(file_path=str(test_file)),
+        ctx,
+    )
+    assert result.success
+    assert "hello world" in result.content
+
+
+@pytest.mark.asyncio
+async def test_file_edit(tmp_path):
+    edit_tool = FileEditTool()
+    write_tool = FileWriteTool()
+    ctx = ToolContext(cwd=str(tmp_path))
+
+    test_file = tmp_path / "edit.txt"
+    await write_tool.call(
+        write_tool.input_model(file_path=str(test_file), content="foo bar baz"),
+        ctx,
+    )
+    result = await edit_tool.call(
+        edit_tool.input_model(
+            file_path=str(test_file),
+            old_string="bar",
+            new_string="qux",
+        ),
+        ctx,
+    )
+    assert result.success
+
+    read_tool = FileReadTool()
+    result = await read_tool.call(
+        read_tool.input_model(file_path=str(test_file)),
+        ctx,
+    )
+    assert "foo qux baz" in result.content
+
+
+@pytest.mark.asyncio
+async def test_bash_read_only():
+    bash = BashTool()
+    ctx = ToolContext(cwd="/c/aibes/minagent")
+    result = await bash.call(
+        bash.input_model(command="find minagent -maxdepth 1 -type d"),
+        ctx,
+    )
+    assert result.success
+    assert "core" in result.content
+
+
+@pytest.mark.asyncio
+async def test_glob():
+    glob = GlobTool()
+    ctx = ToolContext(cwd="/c/aibes/minagent")
+    result = await glob.call(
+        glob.input_model(pattern="**/*.py"),
+        ctx,
+    )
+    assert result.success
+    assert len(result.content) > 0
+
+
+@pytest.mark.asyncio
+async def test_task_list():
+    task = TaskListTool()
+    ctx = ToolContext(cwd="/c/aibes/minagent")
+    await task.call(task.input_model(action="add", task="read docs"), ctx)
+    await task.call(task.input_model(action="add", task="write code"), ctx)
+    await task.call(task.input_model(action="done", task_id=0), ctx)
+    result = await task.call(task.input_model(action="list"), ctx)
+    assert "✅ read docs" in result.content
+    assert "⬜ write code" in result.content
+
+
+@pytest.mark.asyncio
+async def test_tool_registry():
+    from minagent.core.tool_registry import ToolRegistry
+
+    registry = ToolRegistry()
+    registry.register(FileReadTool())
+    registry.register(FileWriteTool())
+
+    assert registry.has("FileRead")
+    assert registry.has("FileWrite")
+    schemas = registry.to_openai_schemas()
+    assert len(schemas) == 2
+    assert schemas[0]["function"]["name"] == "FileRead"
