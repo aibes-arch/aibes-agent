@@ -42,7 +42,7 @@ cli = [
 ]
 
 [project.scripts]
-minagent = "minagent.cli:main"
+minagent = "minagent.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["."]

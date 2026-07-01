@@ -13,6 +13,14 @@ from minagent.tools import (
 )
 from minagent.tools.base import ToolContext
 
+import os
+import sys
+
+from loguru import logger
+
+logger.remove()
+logger.add(sys.stderr, level=os.getenv("MINAGENT_LOG_LEVEL", "INFO"))
+
 __all__ = [
     "AgentConfig",
     "AgentLoop",

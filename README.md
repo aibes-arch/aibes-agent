@@ -270,7 +270,16 @@ minagent/
 ├── pyproject.toml
 ├── README.md
 └── docs/
-    └── ARCHITECTURE.md
+    ├── README.md              # 文档中心索引
+    ├── ARCHITECTURE.md        # 架构设计
+    ├── MODULE_DESIGN.md       # 模块设计
+    ├── API_REFERENCE.md       # API 参考
+    ├── ROADMAP.md             # 版本演进
+    ├── QUICK_START.md         # 快速开始
+    ├── TOOL_DEVELOPMENT.md    # 工具开发指南
+    ├── DOMAIN_CASE.md         # 领域案例
+    ├── CONTRIBUTING.md        # 贡献指南
+    └── references/            # 参考资料
 ```
 
 ---

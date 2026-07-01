@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any, AsyncIterator, Dict, List, Optional
 
+from loguru import logger
+
 from minagent.core.context import ContextWindow, Message
 from minagent.core.llm import LLMClient, LLMResponse
 from minagent.core.tool_registry import ToolRegistry
@@ -64,6 +66,12 @@ class AgentLoop:
                 yield {"type": "compact", "message": "Context compacted"}
 
             tools = self.registry.to_openai_schemas()
+            logger.info(
+                "Turn {}/{}: calling LLM (model={})...",
+                turn + 1,
+                self.config.max_turns,
+                self.llm.model,
+            )
             response = await self.llm.chat(
                 messages=ctx.to_openai_messages(),
                 tools=tools,
@@ -80,6 +88,12 @@ class AgentLoop:
                 "usage": response.usage,
             }
 
+            logger.info(
+                "LLM responded (model={}): content_chars={} tool_calls={}",
+                response.model or self.llm.model,
+                len(response.content or ""),
+                len(response.tool_calls),
+            )
             ctx.add_assistant(response.content, response.tool_calls)
 
             if not response.has_tool_calls():
@@ -113,6 +127,7 @@ class AgentLoop:
                 return
 
             # 执行工具
+            logger.info("Executing {} tool call(s)...", len(allowed_tool_calls))
             tool_results = await self.registry.execute(allowed_tool_calls, self.tool_context)
 
             for tr in tool_results:

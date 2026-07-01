@@ -4,6 +4,7 @@ import os
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 import httpx
+from loguru import logger
 from pydantic import BaseModel, Field
 
 
@@ -53,12 +54,19 @@ class LLMClient:
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
+        logger.info(
+            "LLM request: url={}/chat/completions model={} timeout={}s",
+            self.base_url,
+            self.model,
+            self.timeout,
+        )
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
                 json=payload,
                 headers=headers,
             )
+            logger.info("LLM response status: {}", response.status_code)
             response.raise_for_status()
             data = response.json()
 

@@ -51,7 +51,8 @@ When given a task, break it down into steps, use tools to gather information, an
     perm = PermissionEngine.default()
 
     # 5. 工具上下文
-    tool_context = ToolContext(cwd="/c/aibes/minagent")
+    # 使用当前工作目录，避免在 Windows 上写死 Unix 风格路径
+    tool_context = ToolContext(cwd=os.getcwd())
 
     # 6. 运行 Agent
     agent = AgentLoop(
@@ -73,10 +74,10 @@ When given a task, break it down into steps, use tools to gather information, an
                 print(f"Tool calls: {[tc['function']['name'] for tc in event['tool_calls']]}")
         elif event["type"] == "tool_result":
             print(f"\n[Tool: {event['name']}]\n{event['content'][:500]}")
-        elif event["type"] == "final":
-            print(f"\n[Final]\n{event['content']}")
         elif event["type"] == "error":
             print(f"\n[Error] {event['message']}")
+        elif event["type"] == "final":
+            print(f"\n[Final]\n{event['content']}")
 
 
 if __name__ == "__main__":
