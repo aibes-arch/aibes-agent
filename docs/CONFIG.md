@@ -42,6 +42,12 @@ skills:
   paths:
     - ".aibes-agent/skills"
 
+plugins:
+  auto_load: true
+  entry_points: true
+  paths:
+    - ".aibes-agent/plugins"
+
 mcp_servers:
   filesystem:
     transport: stdio

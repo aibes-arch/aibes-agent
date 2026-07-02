@@ -1,0 +1,3 @@
+name: greeting
+version: "1.0.0"
+module: greeting_plugin

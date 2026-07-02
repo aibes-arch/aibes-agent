@@ -69,6 +69,12 @@ agent_config, registry, profiles = builder.build()
 
 ---
 
+## 插件也可以提供 Skill
+
+除了把 Skill 直接放在 `.aibes-agent/skills/` 下，还可以通过 [Plugin](./PLUGINS.md) 的 `__aibes_plugin__["skills"]` 导出 `Skill` 实例。`SkillBuilder` 会把插件 Skill 与本地 Skill 一起合并。
+
+---
+
 ## 多 Skill 合并规则
 
 - 多个 Skill 的 `system_prompt` 按顺序拼接。

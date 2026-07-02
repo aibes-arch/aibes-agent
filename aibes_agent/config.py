@@ -80,6 +80,15 @@ class SkillsConfig:
 
 
 @dataclass
+class PluginsConfig:
+    """Plugin discovery settings."""
+
+    auto_load: bool = True
+    entry_points: bool = True
+    paths: List[str] = field(default_factory=lambda: [".aibes-agent/plugins"])
+
+
+@dataclass
 class MCPServerConfig:
     """A single MCP server connection descriptor."""
 
@@ -119,6 +128,7 @@ class MinagentConfig:
     router: RouterConfig = field(default_factory=RouterConfig)
     permissions: PermissionsConfig = field(default_factory=PermissionsConfig)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
+    plugins: PluginsConfig = field(default_factory=PluginsConfig)
     mcp_servers: Dict[str, MCPServerConfig] = field(default_factory=dict)
     session: SessionConfig = field(default_factory=SessionConfig)
     web: WebConfig = field(default_factory=WebConfig)
@@ -166,6 +176,13 @@ class MinagentConfig:
             paths=list(skills_data.get("paths", [".aibes-agent/skills"])),
         )
 
+        plugins_data = data.get("plugins", {})
+        plugins = PluginsConfig(
+            auto_load=bool(plugins_data.get("auto_load", True)),
+            entry_points=bool(plugins_data.get("entry_points", True)),
+            paths=list(plugins_data.get("paths", [".aibes-agent/plugins"])),
+        )
+
         mcp_servers: Dict[str, MCPServerConfig] = {}
         for name, srv in data.get("mcp_servers", {}).items():
             mcp_servers[name] = MCPServerConfig(
@@ -193,6 +210,7 @@ class MinagentConfig:
             router=router,
             permissions=permissions,
             skills=skills,
+            plugins=plugins,
             mcp_servers=mcp_servers,
             session=session,
             web=web,

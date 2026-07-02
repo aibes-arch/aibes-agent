@@ -7,6 +7,7 @@ from aibes_agent.core.session import FileSessionStore, SessionStore
 from aibes_agent.core.stats import RunStats
 from aibes_agent.core.tool_registry import ToolRegistry
 from aibes_agent.permissions.engine import PermissionEngine
+from aibes_agent.plugins import Plugin, PluginBuilder, PluginLoader
 from aibes_agent.skills import Skill, SkillBuilder, SkillLoader
 from aibes_agent.tools import (
     AgentProfile,
@@ -67,6 +68,9 @@ __all__ = [
     "RunStats",
     "MinagentConfig",
     "MCPServerConfig",
+    "Plugin",
+    "PluginBuilder",
+    "PluginLoader",
     "Skill",
     "SkillLoader",
     "SkillBuilder",
