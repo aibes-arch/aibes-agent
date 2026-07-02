@@ -18,6 +18,9 @@
 - [搜索工具 `aibes_agent.tools.search`](#搜索工具-aibes-agenttoolssearch)
 - [Shell 工具 `aibes_agent.tools.shell`](#shell-工具-aibes-agenttoolsshell)
 - [任务工具 `aibes_agent.tools.task`](#任务工具-aibes-agenttoolstask)
+- [代码审查工具 `aibes_agent.tools.code_review`](#代码审查工具-aibes-agenttoolscode_review)
+- [钻井工程工具 `aibes_agent.tools.drilling`](#钻井工程工具-aibes-agenttoolsdrilling)
+- [文档处理工具 `aibes_agent.tools.documents`](#文档处理工具-aibes-agenttoolsdocuments)
 - [CLI `aibes_agent.cli`](#cli-aibes-agentcli)
 - [事件类型](#事件类型)
 
@@ -41,6 +44,15 @@ from aibes-agent import (
     GlobTool,
     GrepTool,
     TaskListTool,
+    GitDiffTool,
+    LintTool,
+    CoverageTool,
+    ParseWitsmlTool,
+    AnalyzeDrillingLogTool,
+    ValidateFormulaTool,
+    QueryKnowledgeBaseTool,
+    PdfExtractTool,
+    MarkdownMergeTool,
 )
 ```
 
@@ -497,6 +509,198 @@ class TaskListInput(BaseModel):
 - �?`ToolContext.metadata["tasks"]` 中维护任务列表�?- `list` 为只读操作，`add/done` 为写入操作�?
 ---
 
+## 代码审查工具 `aibes_agent.tools.code_review`
+
+v0.4.0 新增。需要安装 `aibes-agent[code_review]` 才能完整使用。
+
+### `GitDiffTool`
+
+```python
+class GitDiffTool(Tool):
+    name = "GitDiff"
+```
+
+输入模型：
+```python
+class GitDiffInput(BaseModel):
+    commit_range: str = ""       # e.g. "HEAD~1" or "main...feature"
+    path: str = ""               # limit diff to a file or directory
+    staged: bool = False         # show staged diff
+```
+
+行为：
+- 调用 `git diff` 获取工作区、暂存区或指定 commit range 的 diff。
+- 只读工具，可并发执行。
+
+### `LintTool`
+
+```python
+class LintTool(Tool):
+    name = "Lint"
+```
+
+输入模型：
+```python
+class LintInput(BaseModel):
+    target: str = "."                         # file or directory
+    linter: str = "ruff"                     # "ruff" / "ruff-format" / "mypy"
+    extra_args: List[str] = []               # additional CLI args
+```
+
+行为：
+- 运行 `ruff check`、`ruff format --check` 或 `mypy`。
+- 返回 linter 原始输出；若 linter 报错则 `success=False`。
+
+### `CoverageTool`
+
+```python
+class CoverageTool(Tool):
+    name = "Coverage"
+```
+
+输入模型：
+```python
+class CoverageInput(BaseModel):
+    target: str = "."                # project or test directory
+    command: str = "report"          # "report" / "run" / "html"
+    source: Optional[str] = None     # source package for coverage run
+```
+
+行为：
+- `report`：读取现有 `.coverage` 数据生成文本报告（只读）。
+- `run`：先执行 `coverage run -m pytest <target>`，再输出报告。
+- `html`：生成 HTML 覆盖率报告。
+
+---
+
+## 钻井工程工具 `aibes_agent.tools.drilling`
+
+v0.4.0 新增。需要安装 `aibes-agent[drilling]` 才能完整使用。
+
+### `ParseWitsmlTool`
+
+```python
+class ParseWitsmlTool(Tool):
+    name = "ParseWitsml"
+```
+
+输入模型：
+```python
+class ParseWitsmlInput(BaseModel):
+    file_path: str
+    max_records: int = 50
+```
+
+行为：
+- 使用 `lxml` 解析 WITSML XML 文件。
+- 提取 well name、curve mnemonics、measured depths、data records。
+
+### `AnalyzeDrillingLogTool`
+
+```python
+class AnalyzeDrillingLogTool(Tool):
+    name = "AnalyzeDrillingLog"
+```
+
+输入模型：
+```python
+class AnalyzeDrillingLogInput(BaseModel):
+    file_path: str
+    column: str = "ROP"
+    threshold: Optional[float] = None
+```
+
+行为：
+- 读取 CSV 或 JSON 钻井日志。
+- 默认使用 IQR（四分位距）方法检测异常。
+- 可通过 `threshold` 指定静态阈值。
+
+### `ValidateFormulaTool`
+
+```python
+class ValidateFormulaTool(Tool):
+    name = "ValidateFormula"
+```
+
+输入模型：
+```python
+class ValidateFormulaInput(BaseModel):
+    formula: str
+    variables: Dict[str, float] = {}
+    expected_unit: str = ""
+```
+
+行为：
+- 解析并安全求值钻井公式（如 `ECD = rho * g * TVD / 1000`）。
+- 支持 `sqrt`、`sin`、`cos`、`log`、`pi` 等常用数学函数。
+- 若缺少变量值则返回失败。
+
+### `QueryKnowledgeBaseTool`
+
+```python
+class QueryKnowledgeBaseTool(Tool):
+    name = "QueryKnowledgeBase"
+```
+
+输入模型：
+```python
+class QueryKnowledgeBaseInput(BaseModel):
+    query: str
+    kb_path: str = ""     # path to YAML/JSON KB; empty uses built-in KB
+    top_k: int = 5
+```
+
+行为：
+- 在钻井知识库中按关键词匹配返回最相关的条目。
+- 内置少量钻井工程规范与事故案例；支持用户自定义 KB。
+
+---
+
+## 文档处理工具 `aibes_agent.tools.documents`
+
+v0.4.0 新增。需要安装 `aibes-agent[documents]` 才能完整使用。
+
+### `PdfExtractTool`
+
+```python
+class PdfExtractTool(Tool):
+    name = "PdfExtract"
+```
+
+输入模型：
+```python
+class PdfExtractInput(BaseModel):
+    file_path: str
+    pages: Optional[List[int]] = None
+    max_chars: int = 20000
+```
+
+行为：
+- 使用 `pymupdf` 提取 PDF 文本。
+- 支持指定页码或全部页面。
+
+### `MarkdownMergeTool`
+
+```python
+class MarkdownMergeTool(Tool):
+    name = "MarkdownMerge"
+```
+
+输入模型：
+```python
+class MarkdownMergeInput(BaseModel):
+    paths: List[str]
+    output_path: str = ""
+    add_toc: bool = False
+```
+
+行为：
+- 合并多个 Markdown 文件，支持 glob 模式、目录、绝对/相对路径。
+- 若提供 `output_path` 则写入文件；否则返回文本。
+- `add_toc=True` 时根据 H1/H2 生成简单目录。
+
+---
+
 ## CLI `aibes_agent.cli`
 
 ### `app`
@@ -813,6 +1017,64 @@ def create_app(config: Optional[MinagentConfig] = None) -> FastAPI: ...
 ```bash
 aibes-agent run <script.py> [--config PATH] [--session ID] [--skill NAME] [--yes-to-all]
 aibes-agent web [--config PATH] [--host HOST] [--port PORT]
+```
+
+---
+
+*最后更新：2026-07-02*
+
+
+---
+
+## v0.4.0 新增 API
+
+### 顶层导出更新
+
+```python
+from aibes-agent import (
+    GitDiffTool,
+    LintTool,
+    CoverageTool,
+    ParseWitsmlTool,
+    AnalyzeDrillingLogTool,
+    ValidateFormulaTool,
+    QueryKnowledgeBaseTool,
+    PdfExtractTool,
+    MarkdownMergeTool,
+)
+```
+
+### `aibes_agent.tools.code_review`
+
+| 工具 | 说明 | 可选依赖 |
+|------|------|----------|
+| `GitDiffTool` | 获取 git diff | 无（依赖系统 git） |
+| `LintTool` | 运行 ruff / mypy | `ruff` |
+| `CoverageTool` | 运行或读取测试覆盖率 | `coverage` |
+
+### `aibes_agent.tools.drilling`
+
+| 工具 | 说明 | 可选依赖 |
+|------|------|----------|
+| `ParseWitsmlTool` | 解析 WITSML XML | `lxml` |
+| `AnalyzeDrillingLogTool` | 钻井日志异常检测 | 无 |
+| `ValidateFormulaTool` | 钻井公式验证与求值 | 无 |
+| `QueryKnowledgeBaseTool` | 钻井知识库查询 | 无 |
+
+### `aibes_agent.tools.documents`
+
+| 工具 | 说明 | 可选依赖 |
+|------|------|----------|
+| `PdfExtractTool` | PDF 文本提取 | `pymupdf` |
+| `MarkdownMergeTool` | Markdown 文件合并 | 无 |
+
+### 可选依赖安装
+
+```bash
+pip install aibes-agent[drilling]
+pip install aibes-agent[code_review]
+pip install aibes-agent[documents]
+pip install aibes-agent[drilling,code_review,documents]
 ```
 
 ---

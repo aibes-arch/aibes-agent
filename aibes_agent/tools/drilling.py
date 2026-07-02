@@ -25,6 +25,10 @@ def _resolve_path(path: str, cwd: str) -> Path:
 
 class ParseWitsmlInput(BaseModel):
     file_path: str = Field(..., description="Path to the WITSML XML file")
+    object_type: str = Field(
+        "auto",
+        description="WITSML object type to focus on: 'auto', 'well', 'wellbore', 'trajectory', 'log', 'formation'",
+    )
     max_records: int = Field(50, description="Maximum number of data records to return")
 
 
@@ -32,7 +36,7 @@ class ParseWitsmlTool(Tool[ParseWitsmlInput]):
     name = "ParseWitsml"
     description = (
         "Parse a WITSML XML file and extract key drilling parameters such as well name, "
-        "measured depth, and log curves. Requires the drilling extras."
+        "wellbore, trajectory, log curves, and formation tops. Requires the drilling extras."
     )
     input_model = ParseWitsmlInput
 
@@ -59,18 +63,39 @@ class ParseWitsmlTool(Tool[ParseWitsmlInput]):
             ns_match = re.match(r"\{([^}]+)\}", root.tag)
             ns = {"witsml": ns_match.group(1)} if ns_match else {}
 
-            result: Dict[str, Any] = {"file": str(path), "wells": []}
+            result: Dict[str, Any] = {"file": str(path), "object_type": input.object_type}
 
-            well_names = root.xpath("//witsml:name/text()", namespaces=ns)
+            well_names = root.xpath("//witsml:well//witsml:name/text()", namespaces=ns)
+            if not well_names:
+                well_names = root.xpath("//witsml:name/text()", namespaces=ns)
             if well_names:
-                result["well_names"] = well_names[: input.max_records]
+                result["well_names"] = list(dict.fromkeys(well_names))[: input.max_records]
 
-            # Try to extract log curve info
-            curve_names = root.xpath("//witsml:mnemonic/text()", namespaces=ns)
+            # Wellbore info
+            wellbore_names = root.xpath("//witsml:wellbore//witsml:name/text()", namespaces=ns)
+            if wellbore_names:
+                result["wellbores"] = list(dict.fromkeys(wellbore_names))[: input.max_records]
+
+            # Trajectory station info
+            station_mds = root.xpath(
+                "//witsml:trajectoryStation/witsml:md/witsml:value/text()", namespaces=ns
+            )
+            if station_mds:
+                result["trajectory_mds"] = station_mds[: input.max_records]
+
+            # Formation tops
+            formation_names = root.xpath("//witsml:formation//witsml:name/text()", namespaces=ns)
+            if formation_names:
+                result["formations"] = list(dict.fromkeys(formation_names))[: input.max_records]
+
+            # Log curve info
+            curve_names = root.xpath("//witsml:logCurveInfo/witsml:mnemonic/text()", namespaces=ns)
+            if not curve_names:
+                curve_names = root.xpath("//witsml:mnemonic/text()", namespaces=ns)
             if curve_names:
                 result["curve_mnemonics"] = list(dict.fromkeys(curve_names))[: input.max_records]
 
-            # Try to extract measured depth values
+            # Measured depth values
             md_values = root.xpath("//witsml:md/text()", namespaces=ns)
             if md_values:
                 result["measured_depths"] = md_values[: input.max_records]
@@ -99,7 +124,7 @@ class AnalyzeDrillingLogTool(Tool[AnalyzeDrillingLogInput]):
     name = "AnalyzeDrillingLog"
     description = (
         "Analyze a drilling log CSV or JSON file and detect anomalies in a selected column "
-        "(e.g. ROP, WOB, RPM) using Z-score or a static threshold."
+        "(e.g. ROP, WOB, RPM) using IQR or a static threshold."
     )
     input_model = AnalyzeDrillingLogInput
 

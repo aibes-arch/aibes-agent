@@ -23,6 +23,7 @@
 | [MCP 支持](./MCP.md) | 接入外部 MCP 服务器 |
 | [Web UI](./WEB_UI.md) | FastAPI + SSE Web 界面 |
 | [会话持久化](./SESSION.md) | 保存与恢复对话状态 |
+| [文档处理](./DOCUMENTS.md) | PDF 提取、Markdown 合并 |
 
 ### 开发与实践
 

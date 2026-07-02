@@ -718,3 +718,62 @@ aibes-agent web --config aibes-agent.yaml --host 127.0.0.1 --port 8000
 ---
 
 *最后更新：2026-07-02*
+
+
+---
+
+## 12. v0.4.0 新增模块
+
+### 12.1 领域工具包设计原则
+
+v0.4.0 将 `aibes-agent` 从通用框架扩展为支持特定领域的实用 Agent。新增工具位于：
+
+- `aibes_agent.tools.code_review`：代码审查领域
+- `aibes_agent.tools.drilling`：钻井工程领域
+- `aibes_agent.tools.documents`：文档处理领域
+
+设计约束：
+- 领域工具通过 `pyproject.toml` 的 `optional-dependencies` 以 extras 形式提供。
+- 未安装 extras 时，工具在 `call()` 中返回友好错误，核心框架仍可正常导入。
+- 新增工具统一注册到 `aibes_agent.web.server._built_in_tool_pool()`，Web UI 可直接使用。
+
+### 12.2 `aibes_agent.tools.code_review`
+
+| 文件/类 | 职责 |
+|---------|------|
+| `code_review.py` | `GitDiffTool`、`LintTool`、`CoverageTool` |
+
+`GitDiffTool` 调用系统 `git`；`LintTool` 调用 `ruff` / `mypy`；`CoverageTool` 调用 `coverage` CLI 或 Python API。
+
+### 12.3 `aibes_agent.tools.drilling`
+
+| 文件/类 | 职责 |
+|---------|------|
+| `drilling.py` | `ParseWitsmlTool`、`AnalyzeDrillingLogTool`、`ValidateFormulaTool`、`QueryKnowledgeBaseTool` |
+
+- `ParseWitsmlTool` 使用 `lxml` 解析 WITSML XML。
+- `AnalyzeDrillingLogTool` 读取 CSV/JSON 日志，使用 IQR 检测异常。
+- `ValidateFormulaTool` 基于 `ast` 安全求值数学表达式。
+- `QueryKnowledgeBaseTool` 内置最小知识库，支持用户自定义 YAML/JSON。
+
+### 12.4 `aibes_agent.tools.documents`
+
+| 文件/类 | 职责 |
+|---------|------|
+| `documents.py` | `PdfExtractTool`、`MarkdownMergeTool` |
+
+- `PdfExtractTool` 使用 `pymupdf` 提取 PDF 文本。
+- `MarkdownMergeTool` 合并 Markdown 文件，支持 glob、目录、TOC。
+
+### 12.5 Skill 扩展
+
+新增 `.aibes-agent/skills/drilling/skill.yaml`，增强 `.aibes-agent/skills/code-review/skill.yaml`，并预留 `document-processor` Skill 扩展点。
+
+### 12.6 新增示例
+
+- `examples/code_review_agent.py`：使用 GitDiff / Lint / Coverage 自动审查。
+- `examples/drilling_analysis_agent.py`：使用钻井工程工具分析数据。
+
+---
+
+*最后更新：2026-07-02*

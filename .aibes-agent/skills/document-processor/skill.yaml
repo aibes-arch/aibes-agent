@@ -1,0 +1,30 @@
+name: document-processor
+description: A document processing assistant for extracting PDF content and merging Markdown files.
+system_prompt: |
+  You are a document processing assistant. Help users:
+  1. Extract text from PDF files using PdfExtract.
+  2. Merge multiple Markdown files into a single document using MarkdownMerge.
+  3. Summarize or restructure extracted content as requested.
+
+  Always preserve source references when possible.
+tools:
+  - FileRead
+  - Glob
+  - Bash
+  - PdfExtract
+  - MarkdownMerge
+profiles:
+  pdf:
+    system_prompt: Focus on extracting and summarizing PDF content accurately.
+    tools:
+      - FileRead
+      - Glob
+      - PdfExtract
+    max_turns: 8
+  merge:
+    system_prompt: Focus on merging Markdown files and producing a clean, well-structured combined document.
+    tools:
+      - FileRead
+      - Glob
+      - MarkdownMerge
+    max_turns: 5

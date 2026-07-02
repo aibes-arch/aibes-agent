@@ -118,3 +118,33 @@ async def test_parse_witsml(tmp_path, ctx):
     result = await tool.call(tool.input_model(file_path=str(witsml)), ctx)
     assert result.success
     assert "Demo Well" in result.content
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("lxml") is None,
+    reason="lxml not installed",
+)
+@pytest.mark.asyncio
+async def test_parse_witsml_trajectory(tmp_path, ctx):
+    tool = ParseWitsmlTool()
+    witsml = tmp_path / "traj.xml"
+    witsml.write_text(
+        """<?xml version="1.0"?>
+<trajectorys xmlns="http://www.witsml.org/schemas/1series">
+  <trajectory>
+    <name>Demo Trajectory</name>
+    <trajectoryStation uid="s1">
+      <md uom="m">100</md>
+    </trajectoryStation>
+    <trajectoryStation uid="s2">
+      <md uom="m">200</md>
+    </trajectoryStation>
+  </trajectory>
+</trajectorys>
+""",
+        encoding="utf-8",
+    )
+    result = await tool.call(tool.input_model(file_path=str(witsml)), ctx)
+    assert result.success
+    assert "Demo Trajectory" in result.content
+    assert "100" in result.content
