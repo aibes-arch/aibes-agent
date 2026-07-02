@@ -63,3 +63,28 @@ async def test_pdf_extract_missing_file(tmp_path, ctx):
     tool = PdfExtractTool()
     result = await tool.call(tool.input_model(file_path=str(tmp_path / "no.pdf")), ctx)
     assert not result.success
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("fitz") is None,
+    reason="pymupdf not installed",
+)
+@pytest.mark.asyncio
+async def test_pdf_extract_metadata(tmp_path, ctx):
+    import fitz  # type: ignore
+
+    pdf_path = tmp_path / "test.pdf"
+    doc = fitz.open()
+    doc.new_page()
+    doc.set_metadata({"title": "Test PDF", "author": "Tester"})
+    doc.save(str(pdf_path))
+    doc.close()
+
+    tool = PdfExtractTool()
+    result = await tool.call(
+        tool.input_model(file_path=str(pdf_path), include_metadata=True),
+        ctx,
+    )
+    assert result.success
+    assert result.metadata["metadata"].get("title") == "Test PDF"
+    assert result.metadata["metadata"].get("author") == "Tester"

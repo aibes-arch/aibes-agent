@@ -55,7 +55,13 @@ class ToolRegistry:
         """将 tool_calls 分成可并发和需串行的批次。"""
         batches: List[Dict[str, Any]] = []
         for tc in tool_calls:
-            tool = self.get_tool(tc["function"]["name"])
+            try:
+                tool = self.get_tool(tc["function"]["name"])
+            except ValueError:
+                # Unknown tool will be reported as an error during execution
+                batches.append({"is_concurrent": False, "calls": [tc], "error": "Tool not found"})
+                continue
+
             input_model = tool.input_model
             try:
                 parsed = input_model.model_validate(tc["function"].get("arguments", {}))
@@ -78,6 +84,18 @@ class ToolRegistry:
         results = []
         batches = self._partition_tool_calls(tool_calls)
         for batch in batches:
+            if batch.get("error"):
+                for tc in batch["calls"]:
+                    results.append(
+                        {
+                            "tool_call_id": tc["id"],
+                            "role": "tool",
+                            "name": tc["function"]["name"],
+                            "content": f"Error: {batch['error']}",
+                        }
+                    )
+                continue
+
             if batch["is_concurrent"]:
                 coros = []
                 for tc in batch["calls"]:
@@ -98,8 +116,18 @@ class ToolRegistry:
                         results.append(res)
             else:
                 for tc in batch["calls"]:
-                    res = await self._execute_single(tc, context)
-                    results.append(res)
+                    try:
+                        res = await self._execute_single(tc, context)
+                        results.append(res)
+                    except Exception as exc:
+                        results.append(
+                            {
+                                "tool_call_id": tc["id"],
+                                "role": "tool",
+                                "name": tc["function"]["name"],
+                                "content": f"Error: {exc}",
+                            }
+                        )
         return results
 
     @staticmethod

@@ -25,12 +25,13 @@ class PdfExtractInput(BaseModel):
         description="Specific 1-indexed pages to extract. Empty means all pages.",
     )
     max_chars: int = Field(20000, description="Maximum characters to return")
+    include_metadata: bool = Field(False, description="Include PDF metadata in the result")
 
 
 class PdfExtractTool(Tool[PdfExtractInput]):
     name = "PdfExtract"
     description = (
-        "Extract text from a PDF file. Requires the documents extras. "
+        "Extract text and optional metadata from a PDF file. Requires the documents extras. "
         "Optionally limit to specific pages or a maximum character count."
     )
     input_model = PdfExtractInput
@@ -40,7 +41,7 @@ class PdfExtractTool(Tool[PdfExtractInput]):
 
     async def call(self, input: PdfExtractInput, context: ToolContext) -> ToolResult:
         try:
-            import fitz  # type: ignore[import-not-found]  # pymupdf
+            import fitz  # type: ignore[import-untyped]  # pymupdf
         except ImportError:
             return ToolResult.fail(
                 "pymupdf not found. Install the documents extras: "
@@ -70,14 +71,26 @@ class PdfExtractTool(Tool[PdfExtractInput]):
                 if sum(len(t) for t in texts) >= input.max_chars:
                     break
 
+            metadata = {}
+            if input.include_metadata:
+                metadata = {
+                    "title": doc.metadata.get("title", ""),
+                    "author": doc.metadata.get("author", ""),
+                    "subject": doc.metadata.get("subject", ""),
+                    "creator": doc.metadata.get("creator", ""),
+                    "page_count": total_pages,
+                }
+
             doc.close()
             full_text = "\n\n".join(texts)[: input.max_chars]
-            return ToolResult.ok(
-                full_text,
-                file_path=str(path),
-                total_pages=total_pages,
-                extracted_pages=len(page_indices),
-            )
+            result = {
+                "file_path": str(path),
+                "total_pages": total_pages,
+                "extracted_pages": len(page_indices),
+            }
+            if metadata:
+                result["metadata"] = metadata
+            return ToolResult.ok(full_text, **result)
         except Exception as e:
             return ToolResult.fail(f"Failed to extract PDF: {e}")
 

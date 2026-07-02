@@ -1,5 +1,7 @@
+import asyncio
 import importlib.util
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -78,3 +80,50 @@ async def test_coverage_report_no_data(tmp_path):
     ctx = ToolContext(cwd=str(tmp_path))
     result = await cov.call(cov.input_model(command="report"), ctx)
     assert not result.success or "No coverage data" in result.content
+
+
+@pytest.mark.skipif(
+    shutil.which("mypy") is None,
+    reason="mypy not installed",
+)
+@pytest.mark.asyncio
+async def test_lint_mypy(tmp_path):
+    lint = LintTool()
+    ctx = ToolContext(cwd=str(tmp_path))
+
+    py_file = tmp_path / "sample.py"
+    py_file.write_text("x: int = 1\n", encoding="utf-8")
+
+    result = await lint.call(lint.input_model(target=str(py_file), linter="mypy"), ctx)
+    assert result.success
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("coverage") is None,
+    reason="coverage not installed",
+)
+@pytest.mark.asyncio
+async def test_coverage_parse(tmp_path):
+    cov = CoverageTool()
+    ctx = ToolContext(cwd=str(tmp_path))
+
+    py_file = tmp_path / "sample.py"
+    py_file.write_text("x = 1\n", encoding="utf-8")
+
+    # Generate a .coverage database using the coverage API
+    import coverage
+
+    cov_api = coverage.Coverage(data_file=str(tmp_path / ".coverage"), source=[str(tmp_path)])
+    cov_api.start()
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("sample", str(py_file))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    cov_api.stop()
+    cov_api.save()
+
+    result = await cov.call(cov.input_model(command="parse"), ctx)
+    assert result.success
+    assert "coverage_database" in result.content
+    assert "sample.py" in result.content

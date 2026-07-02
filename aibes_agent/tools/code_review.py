@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import shutil
 from pathlib import Path
 from typing import List, Optional
@@ -70,7 +71,7 @@ class LintInput(BaseModel):
     target: str = Field(".", description="File or directory to lint")
     linter: str = Field(
         "ruff",
-        description="Linter to run: 'ruff', 'ruff-format', or 'mypy'",
+        description="Linter to run: 'ruff', 'ruff-format', 'mypy', or 'bandit'",
     )
     extra_args: List[str] = Field(
         default_factory=list,
@@ -81,7 +82,7 @@ class LintInput(BaseModel):
 class LintTool(Tool[LintInput]):
     name = "Lint"
     description = (
-        "Run a static analysis linter (ruff check, ruff format --check, or mypy) "
+        "Run a static analysis linter (ruff check, ruff format --check, mypy, or bandit) "
         "on the target path and return the output."
     )
     input_model = LintInput
@@ -102,10 +103,13 @@ class LintTool(Tool[LintInput]):
         elif linter == "mypy":
             executable = shutil.which("mypy")
             cmd = [executable or "mypy", input.target, *input.extra_args]
+        elif linter == "bandit":
+            executable = shutil.which("bandit")
+            cmd = [executable or "bandit", "-r", input.target, *input.extra_args]
         else:
             return ToolResult.fail(f"Unsupported linter: {input.linter}")
 
-        if executable is None and cmd[0] not in ("ruff", "mypy"):
+        if executable is None and cmd[0] not in ("ruff", "mypy", "bandit"):
             return ToolResult.fail(
                 f"{input.linter} not found. Install the code_review extras: "
                 "pip install aibes-agent[code_review]"
@@ -140,19 +144,23 @@ class CoverageInput(BaseModel):
     target: str = Field(".", description="Path to the project or test directory")
     command: str = Field(
         "report",
-        description="Coverage command: 'report' (existing .coverage), 'run' (run tests first), or 'html'",
+        description="Coverage command: 'report', 'run', 'html', or 'parse'",
     )
     source: Optional[str] = Field(
         None,
         description="Source package to measure coverage for (passed to coverage run)",
+    )
+    diff_against: str = Field(
+        "",
+        description="For 'parse': only report files changed against this git ref (e.g. 'origin/main')",
     )
 
 
 class CoverageTool(Tool[CoverageInput]):
     name = "Coverage"
     description = (
-        "Run or parse Python test coverage. Can execute 'coverage run' to collect data "
-        "or 'coverage report' to summarize existing .coverage data."
+        "Run or parse Python test coverage. Can execute 'coverage run', use 'coverage report', "
+        "or 'parse' the .coverage SQLite database directly with optional diff filtering."
     )
     input_model = CoverageInput
 
@@ -261,7 +269,75 @@ class CoverageTool(Tool[CoverageInput]):
                     return ToolResult.fail(f"coverage html failed: {err}", content=out)
                 return ToolResult.ok(out or "HTML coverage report generated.")
 
+            elif cmd == "parse":
+                return await self._parse_coverage(context, input.diff_against)
+
             else:
                 return ToolResult.fail(f"Unsupported coverage command: {input.command}")
+        except Exception as e:
+            return ToolResult.fail(f"Coverage failed: {e}")
+
+    async def _parse_coverage(self, context: ToolContext, diff_against: str) -> ToolResult:
+        import sqlite3
+
+        coverage_path = Path(context.cwd) / ".coverage"
+        if not coverage_path.exists():
+            return ToolResult.fail(f"No .coverage database found at {coverage_path}")
+
+        changed_files: set = set()
+        if diff_against:
+            git = shutil.which("git")
+            if git:
+                proc = await asyncio.create_subprocess_exec(
+                    git,
+                    "diff",
+                    "--name-only",
+                    diff_against,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=context.cwd,
+                )
+                stdout, _ = await proc.communicate()
+                changed_files = {
+                    line.strip()
+                    for line in stdout.decode("utf-8", errors="replace").splitlines()
+                    if line.strip().endswith(".py")
+                }
+
+        try:
+            conn = sqlite3.connect(str(coverage_path))
+            cursor = conn.cursor()
+            cursor.execute("SELECT path FROM file")
+            files = {row[0] for row in cursor.fetchall()}
+
+            summary = {}
+            for file_path in files:
+                if changed_files and not any(file_path.endswith(f) for f in changed_files):
+                    continue
+
+                cursor.execute(
+                    "SELECT context_id FROM line_bits WHERE file_id = (SELECT id FROM file WHERE path = ?)",
+                    (file_path,),
+                )
+                rows = cursor.fetchall()
+                # Count unique lines covered
+                covered_lines = len({row[0] for row in rows})
+                summary[file_path] = {"covered_lines": covered_lines}
+
+            conn.close()
+            return ToolResult.ok(
+                json.dumps(
+                    {
+                        "coverage_database": str(coverage_path),
+                        "diff_against": diff_against or None,
+                        "files": summary,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                file_count=len(summary),
+            )
+        except Exception as e:
+            return ToolResult.fail(f"Failed to parse .coverage: {e}")
         except Exception as e:
             return ToolResult.fail(f"Coverage failed: {e}")

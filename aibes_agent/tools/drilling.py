@@ -237,7 +237,7 @@ class AnalyzeDrillingLogTool(Tool[AnalyzeDrillingLogInput]):
 
 class ValidateFormulaInput(BaseModel):
     formula: str = Field(
-        ...,
+        "",
         description="Drilling formula expression to validate, e.g. 'ECD = rho * g * TVD / 1000'",
     )
     variables: Dict[str, float] = Field(
@@ -245,6 +245,14 @@ class ValidateFormulaInput(BaseModel):
         description="Variable values to substitute when evaluating the formula",
     )
     expected_unit: str = Field("", description="Optional expected unit for the result")
+    template: str = Field(
+        "",
+        description="Use a built-in formula template: 'ecd', 'annular_pressure', 'bit_hhp'",
+    )
+    convert_unit: str = Field(
+        "",
+        description="Convert result to another unit using built-in conversions: 'psi_to_pa', 'pa_to_psi', 'm_to_ft', 'ft_to_m', 'kg_m3_to_ppg', 'ppg_to_kg_m3'",
+    )
 
 
 class ValidateFormulaTool(Tool[ValidateFormulaInput]):
@@ -258,8 +266,29 @@ class ValidateFormulaTool(Tool[ValidateFormulaInput]):
     def is_read_only(self, input: ValidateFormulaInput) -> bool:
         return True
 
+    _FORMULAS = {
+        "ecd": "rho * g * TVD / 1000",
+        "annular_pressure": "rho * g * TVD",
+        "bit_hhp": "delta_p * q / 1714",
+    }
+
+    _CONVERSIONS = {
+        "psi_to_pa": 6894.757,
+        "pa_to_psi": 1 / 6894.757,
+        "m_to_ft": 3.28084,
+        "ft_to_m": 1 / 3.28084,
+        "kg_m3_to_ppg": 0.008345,
+        "ppg_to_kg_m3": 1 / 0.008345,
+    }
+
     async def call(self, input: ValidateFormulaInput, context: ToolContext) -> ToolResult:
         formula = input.formula.strip()
+
+        if input.template:
+            template_expr = self._FORMULAS.get(input.template.lower())
+            if template_expr is None:
+                return ToolResult.fail(f"Unknown template: {input.template}")
+            formula = template_expr
 
         # Support formulas written as "LHS = RHS" by extracting RHS
         if "=" in formula:
@@ -331,12 +360,25 @@ class ValidateFormulaTool(Tool[ValidateFormulaInput]):
         except Exception as e:
             return ToolResult.fail(f"Formula evaluation failed: {e}")
 
-        response = {
+        converted = None
+        conversion_factor = None
+        if input.convert_unit:
+            conversion_factor = self._CONVERSIONS.get(input.convert_unit.lower())
+            if conversion_factor is None:
+                return ToolResult.fail(f"Unknown conversion: {input.convert_unit}")
+            converted = result * conversion_factor
+
+        response: Dict[str, Any] = {
             "formula": input.formula,
+            "template": input.template or None,
             "expression": formula,
             "result": result,
             "expected_unit": input.expected_unit or "unspecified",
         }
+        if converted is not None:
+            response["converted"] = converted
+            response["conversion_factor"] = conversion_factor
+
         return ToolResult.ok(json.dumps(response, ensure_ascii=False, indent=2), **response)
 
 

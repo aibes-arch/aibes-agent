@@ -97,6 +97,38 @@ async def test_query_knowledge_base_builtin(ctx):
     assert "ECD" in result.content
 
 
+@pytest.mark.asyncio
+async def test_validate_formula_template(ctx):
+    tool = ValidateFormulaTool()
+    result = await tool.call(
+        tool.input_model(template="ecd", variables={"rho": 1200, "g": 9.81, "TVD": 2000}),
+        ctx,
+    )
+    assert result.success
+    data = json.loads(result.content)
+    assert data["template"] == "ecd"
+    assert "expression" in data
+
+
+@pytest.mark.asyncio
+async def test_validate_formula_unit_conversion(ctx):
+    tool = ValidateFormulaTool()
+    result = await tool.call(
+        tool.input_model(formula="p = 100", variables={}, convert_unit="psi_to_pa"),
+        ctx,
+    )
+    assert result.success
+    data = json.loads(result.content)
+    assert data["converted"] == pytest.approx(100 * 6894.757)
+
+
+@pytest.mark.asyncio
+async def test_validate_formula_unknown_template(ctx):
+    tool = ValidateFormulaTool()
+    result = await tool.call(tool.input_model(formula="", template="unknown"), ctx)
+    assert not result.success
+
+
 @pytest.mark.skipif(
     importlib.util.find_spec("lxml") is None,
     reason="lxml not installed",

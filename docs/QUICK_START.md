@@ -39,6 +39,14 @@ pip install -e ".[cli]"
 pip install -e ".[dev]"
 ```
 
+### 1.4 安装领域工具包（v0.4.0）
+
+```bash
+pip install -e ".[drilling]"      # 钻井工程工具
+pip install -e ".[code_review]"   # 代码审查工具
+pip install -e ".[documents]"     # 文档处理工具
+```
+
 ---
 
 ## 2. 配置 LLM

@@ -8,7 +8,11 @@ Skill 是可复用的 **system prompt + 工具集 + 子 Agent profile** 组合�
 
 ```text
 .aibes-agent/skills/
-└── code-review/
+├── code-review/
+│   └── skill.yaml
+├── drilling/
+│   └── skill.yaml
+└── document-processor/
     └── skill.yaml
 ```
 
