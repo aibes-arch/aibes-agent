@@ -1,6 +1,6 @@
 # aibes-agent 快速开�?
-> **版本**: 0.1.0  
-> **最后更�?*: 2026-07-01  
+> **版本**: 0.4.0  
+> **最后更�?*: 2026-07-02  
 > **前置要求**: Python 3.11+
 
 ---
@@ -395,7 +395,7 @@ tool_context = ToolContext(cwd=os.getcwd(), cache=ToolResultCache(default_ttl=0)
 
 ---
 
-*最后更新：2026-07-01*
+*最后更新：2026-07-02*
 
 
 ---
@@ -481,4 +481,4 @@ async for event in agent.run("My task", session_id="sess-1"):
 
 ---
 
-*最后更新：2026-07-01*
+*最后更新：2026-07-02*

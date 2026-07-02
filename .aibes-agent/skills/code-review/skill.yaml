@@ -13,10 +13,28 @@ tools:
   - Grep
   - Glob
   - Bash
+  - GitDiff
+  - Lint
+  - Coverage
 profiles:
   security:
     system_prompt: Focus exclusively on security issues such as injection, unsafe deserialization, hardcoded secrets, and path traversal.
     tools:
       - FileRead
       - Grep
+      - GitDiff
+    max_turns: 5
+  lint:
+    system_prompt: Focus on static analysis results. Run ruff and mypy and summarize findings.
+    tools:
+      - Lint
+      - FileRead
+      - GitDiff
+    max_turns: 5
+  coverage:
+    system_prompt: Focus on test coverage. Run pytest with coverage and identify untested changed code.
+    tools:
+      - Coverage
+      - GitDiff
+      - FileRead
     max_turns: 5

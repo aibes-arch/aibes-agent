@@ -20,13 +20,22 @@ from aibes_agent.core.session import FileSessionStore
 from aibes_agent.skills import SkillBuilder, SkillLoader
 from aibes_agent.tools import (
     AgentTool,
+    AnalyzeDrillingLogTool,
     BashTool,
+    CoverageTool,
     FileEditTool,
     FileReadTool,
     FileWriteTool,
+    GitDiffTool,
     GlobTool,
     GrepTool,
+    LintTool,
+    MarkdownMergeTool,
+    ParseWitsmlTool,
+    PdfExtractTool,
+    QueryKnowledgeBaseTool,
     TaskListTool,
+    ValidateFormulaTool,
 )
 from aibes_agent.tools.base import Tool, ToolContext
 from aibes_agent.web.runner import WebRunner
@@ -97,6 +106,15 @@ def _built_in_tool_pool() -> Dict[str, Tool]:
         "Grep": GrepTool(),
         "Glob": GlobTool(),
         "TaskList": TaskListTool(),
+        "GitDiff": GitDiffTool(),
+        "Lint": LintTool(),
+        "Coverage": CoverageTool(),
+        "ParseWitsml": ParseWitsmlTool(),
+        "AnalyzeDrillingLog": AnalyzeDrillingLogTool(),
+        "ValidateFormula": ValidateFormulaTool(),
+        "QueryKnowledgeBase": QueryKnowledgeBaseTool(),
+        "PdfExtract": PdfExtractTool(),
+        "MarkdownMerge": MarkdownMergeTool(),
     }
 
 
