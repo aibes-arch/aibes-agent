@@ -21,6 +21,7 @@
 - **Skill 系统**：按项目/领域加载 prompt 与工具组合
 - **MCP 客户端**：接入外部 Model Context Protocol 工具服务器
 - **Web UI**：基于 FastAPI + SSE 的实时 Web 界面
+- **Plugin 机制**：本地目录 + entry point 插件扩展
 - **会话持久化**：保存/恢复对话历史与任务状态
 - **多模型路由**：根据任务选择不同模型
 - **领域工具包（v0.4.0）**：代码审查、钻井工程、文档处理可选工具
@@ -101,6 +102,7 @@
 | `tools.git` | Git 操作工具 |
 | `tools.task` | 任务列表工具 |
 | `skills` | Skill 加载与构建 |
+| `plugins` | Plugin 发现、加载与构建 |
 | `mcp` | MCP 客户端与工具适配 |
 | `web` | FastAPI + SSE Web UI |
 | `permissions.engine` | 权限规则引擎 |
@@ -276,6 +278,10 @@ aibes-agent/
 │   │   ├── skill.py
 │   │   ├── loader.py
 │   │   └── builder.py
+│   ├── plugins/               # Plugin 机制
+│   │   ├── plugin.py
+│   │   ├── loader.py
+│   │   └── builder.py
 │   ├── mcp/                   # MCP 客户端
 │   │   ├── client.py
 │   │   └── tool.py
@@ -289,6 +295,8 @@ aibes-agent/
 │   ├── test_tools.py
 │   ├── test_config.py
 │   ├── test_skills.py
+│   ├── test_plugins.py
+│   ├── test_cli.py
 │   ├── test_mcp.py
 │   ├── test_session.py
 │   ├── test_router.py
@@ -296,9 +304,11 @@ aibes-agent/
 ├── examples/
 │   ├── readme_demo.py
 │   ├── skill_demo.py
-│   └── mcp_demo.py
+│   ├── mcp_demo.py
+│   └── greeting_plugin/       # Plugin 扩展示例
 ├── .aibes-agent/
-│   └── skills/                # 项目级 Skill
+│   ├── skills/                # 项目级 Skill
+│   └── plugins/               # 项目级 Plugin
 ├── config.example.yaml
 ├── aibes-agent.yaml              # 用户配置文件（可选）
 ├── pyproject.toml
@@ -340,7 +350,12 @@ aibes-agent/
 | 0.1.0 | MVP：AgentLoop + 基础工具 + 权限系统 |
 | 0.2.0 | 子 Agent、上下文压缩增强、TaskList 增强、权限 ask 交互、工具缓存、重试、统计 |
 | 0.3.0 | ✅ MCP 支持、Web UI、Skill 系统 |
-| 0.4.0 | ✅ 领域工具包（钻井工程、代码审查） |
+| 0.4.0 | ✅ Plugin 机制、领域工具包（钻井工程、代码审查、文档处理） |
+| 0.5.0 | 会话与 Memory 增强 |
+| 0.6.0 | Planner 与任务编排 |
+| 0.7.0 | Workflow Engine |
+| 0.8.0 | 桌面 / TUI / IDE 插件 |
+| 1.0.0 | 稳定版：完整测试、文档、生产可用 |
 
 ---
 

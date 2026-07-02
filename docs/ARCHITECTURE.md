@@ -70,6 +70,10 @@ flowchart TB
 | 引擎�?| `aibes_agent.core.tool_registry` | `ToolRegistry`：工具注册、schema 转换、并�?串行编排�?|
 | 工具�?| `aibes_agent.tools.*` | 文件读写、Shell 执行、代码搜索、任务列表等具体工具�?|
 | 权限�?| `aibes_agent.permissions.engine` | `PermissionEngine`：按规则判断工具调用是否允许�?|
+| 配置与扩展 | `aibes_agent.config` / `aibes_agent.skills` | `MinagentConfig`、`SkillLoader`、`SkillBuilder`：配置、Skill 发现与组装 |
+| 插件 | `aibes_agent.plugins` | `PluginLoader`、`PluginBuilder`：本地与 entry point 插件发现 |
+| MCP | `aibes_agent.mcp` | `MCPClient` + `MCPTool`：接入外部 MCP 服务器 |
+| Web UI | `aibes_agent.web` | FastAPI + SSE 实时 Web 界面 |
 
 ---
 
@@ -458,6 +462,93 @@ flowchart TB
 - `GET /api/events/{session_id}` SSE 实时事件流
 - `GET /api/sessions` 会话列表
 - `GET /api/tools` 当前可用工具列表
+
+---
+
+*最后更新：2026-07-02*
+
+---
+
+## 14. v0.4.0 架构演进
+
+v0.4.0 在 v0.3.0 的基础上引入 **Plugin Manager** 和**领域工具包**，让框架从“通用 Agent 引擎”进化为“可扩展的领域 Agent 平台”。
+
+```mermaid
+flowchart TB
+    subgraph L1["Layer 1: 用户接口层"]
+        CLI["aibes-agent CLI<br/>run / web / plugins"]
+        WebUI["FastAPI + SSE<br/>Web UI"]
+        Script["用户脚本 / 插件"]
+    end
+
+    subgraph L2["Layer 2: 配置、Skill 与 Plugin"]
+        Config["MinagentConfig<br/>aibes-agent.yaml"]
+        Skills["SkillLoader / SkillBuilder"]
+        Plugins["PluginLoader / PluginBuilder"]
+        MCPClient["MCPClient<br/>stdio / SSE"]
+    end
+
+    subgraph L3["Layer 3: Agent 引擎层"]
+        Engine["AgentLoop"]
+        Context["ContextWindow<br/>session save/load"]
+        Router["ModelRouter"]
+        LLM["LLMClient"]
+    end
+
+    subgraph L4["Layer 4: 工具与权限层"]
+        Registry["ToolRegistry<br/>built-in + MCP + plugins"]
+        AgentTool["AgentTool<br/>sub-agent"]
+        Tools["Built-in Tools"]
+        Perm["PermissionEngine"]
+    end
+
+    CLI -->|config| Config
+    WebUI -->|config| Config
+    Script -->|config| Config
+    Config --> Skills
+    Config --> Plugins
+    Config --> MCPClient
+    Skills -->|build| Registry
+    Plugins -->|tools/skills/profiles| Registry
+    MCPClient -->|MCPTool| Registry
+    Engine -->|route| Router
+    Engine -->|persist| Context
+    Engine -->|chat| LLM
+    Engine -->|execute| Registry
+    Registry -->|delegate| AgentTool
+    AgentTool -->|run| Engine
+    Engine -->|check| Perm
+```
+
+### 14.1 Plugin Manager
+
+`PluginLoader` 从两类来源发现插件：
+
+1. **本地目录**：默认 `.aibes-agent/plugins/<name>/`，通过 `plugin.yaml` 和 `__init__.py` 加载。
+2. **Entry Points**：已安装 Python 包通过 `aibes_agent.plugins` entry point 声明插件模块。
+
+插件可导出 Tool、Skill 和子 Agent Profile；插件内部的业务逻辑模块仍可被独立导入和调用。
+
+### 14.2 领域工具包
+
+领域工具以可选依赖形式存在（如 `aibes-agent[drilling]`、`aibes-agent[code_review]`、`aibes-agent[documents]`），不影响核心框架。每个领域提供：
+
+- 专用 Tool（如 `ParseWitsmlTool`、`ValidateFormulaTool`）
+- 配套 Skill YAML
+- 示例脚本
+
+---
+
+## 15. 未来架构方向
+
+| 方向 | 关键组件 | 说明 |
+|------|----------|------|
+| **Memory** | `MemoryStore` / `VectorMemory` | 跨会话语义检索、长期知识记忆 |
+| **Planner** | `Planner` | 独立规划模块，生成并执行多步骤计划 |
+| **Workflow Engine** | `WorkflowEngine` | DAG/状态机驱动可持久化工作流 |
+| **Desktop / IDE** | TUI / VS Code / JetBrains 插件 | 更贴近开发者工作流的交互界面 |
+
+这些方向与 [版本演进计划](./ROADMAP.md) 中的 v0.5.0–v0.8.0 对应。
 
 ---
 

@@ -3,6 +3,7 @@
 Usage:
     aibes-agent run [--yes-to-all] <script.py> [args...]
     aibes-agent web [--config path] [--host HOST] [--port PORT]
+    aibes-agent plugins list [--config path] [--tools]
 """
 
 from __future__ import annotations
@@ -15,8 +16,11 @@ from typing import Annotated, List, Optional
 import typer
 
 from aibes_agent.config import MinagentConfig
+from aibes_agent.plugins import PluginLoader
 
 app = typer.Typer(help="aibes-agent — minimal Python agent framework CLI")
+plugins_app = typer.Typer(help="Manage aibes-agent plugins")
+app.add_typer(plugins_app, name="plugins")
 
 
 def _run_script(script_path: Path, script_args: list[str]) -> None:
@@ -123,6 +127,55 @@ def web(
 
     web_app = create_app(cfg)
     uvicorn.run(web_app, host=cfg.web.host, port=cfg.web.port)
+
+
+@plugins_app.command("list")
+def plugins_list(
+    config: Annotated[
+        Optional[str],
+        typer.Option("--config", "-c", help="Path to aibes-agent.yaml"),
+    ] = None,
+    tools: Annotated[
+        bool,
+        typer.Option("--tools", "-t", help="Also list tools provided by each plugin"),
+    ] = False,
+) -> None:
+    """List discovered plugins."""
+    cfg = MinagentConfig.load(config) if config else MinagentConfig.load()
+    loader = PluginLoader(
+        search_paths=cfg.plugins.paths,
+        load_entry_points=cfg.plugins.entry_points,
+    )
+    discovered = loader.load_all()
+
+    if not discovered:
+        typer.echo("No plugins discovered.")
+        return
+
+    try:
+        from rich.console import Console
+        from rich.table import Table
+
+        console = Console()
+        table = Table(title="Discovered aibes-agent plugins")
+        table.add_column("Name")
+        table.add_column("Version")
+        table.add_column("Source")
+        if tools:
+            table.add_column("Tools")
+
+        for plugin in discovered:
+            row = [plugin.name, plugin.version, plugin.source]
+            if tools:
+                row.append(", ".join(tool.name for tool in plugin.tools) or "-")
+            table.add_row(*row)
+        console.print(table)
+    except ImportError:
+        for plugin in discovered:
+            line = f"{plugin.name} {plugin.version} ({plugin.source})"
+            if tools:
+                line += f" tools: {', '.join(tool.name for tool in plugin.tools) or '-'}"
+            typer.echo(line)
 
 
 if __name__ == "__main__":

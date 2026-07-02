@@ -144,6 +144,21 @@ python examples/greeting_plugin/demo.py
 
 ---
 
+## CLI 命令
+
+```bash
+# 列出已发现的插件
+aibes-agent plugins list
+
+# 同时列出每个插件提供的工具
+aibes-agent plugins list --tools
+
+# 指定配置文件
+aibes-agent plugins list --config ./aibes-agent.yaml
+```
+
+---
+
 ## 设计原则
 
 1. **独立可调用**：插件的核心逻辑应该是普通 Python 代码，不强制继承框架类型。
