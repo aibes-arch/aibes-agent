@@ -18,13 +18,26 @@
 
 | 文档 | 说明 |
 |-----|------|
+| [文档处理](./DOCUMENTS.md) | PDF 提取、Markdown 合并 |
+| [Plugin 机制](./PLUGINS.md) | 插件开发、发现与加载 |
+| [领域工具包](./DOMAIN_CASE.md) | 钻井工程、代码审查等扩展方案 |
+
+### v0.5.0 功能文档
+
+| 文档 | 说明 |
+|-----|------|
 | [配置文件](./CONFIG.md) | `aibes-agent.yaml` 配置格式与加载机制 |
 | [Skill 系统](./SKILLS.md) | 项目级 Skill 定义、加载与使用 |
 | [MCP 支持](./MCP.md) | 接入外部 MCP 服务器 |
 | [Web UI](./WEB_UI.md) | FastAPI + SSE Web 界面 |
 | [会话持久化](./SESSION.md) | 保存与恢复对话状态 |
-| [文档处理](./DOCUMENTS.md) | PDF 提取、Markdown 合并 |
-| [Plugin 机制](./PLUGINS.md) | 插件开发、发现与加载 |
+| [Memory 系统](./MEMORY.md) | 长期记忆存储与检索 |
+
+### v0.6.0 功能文档
+
+| 文档 | 说明 |
+|-----|------|
+| [任务规划](./PLANNER.md) | Planner 计划生成、执行与重规划 |
 
 ### 开发与实践
 

@@ -4,7 +4,7 @@
 >
 > **设计原则**：简单、可扩展、可验证。
 >
-> **版本**: 0.4.0
+> **版本**: 0.6.0
 
 ---
 
@@ -24,6 +24,7 @@
 - **Plugin 机制**：本地目录 + entry point 插件扩展
 - **会话持久化**：保存/恢复对话历史与任务状态
 - **多模型路由**：根据任务选择不同模型
+- **Planner（v0.6.0）**：显式任务规划、多步骤编排与失败重规划
 - **领域工具包（v0.4.0）**：代码审查、钻井工程、文档处理可选工具
 
 **不是** 要替代 Claude Code，而是：
@@ -282,6 +283,11 @@ aibes-agent/
 │   │   ├── plugin.py
 │   │   ├── loader.py
 │   │   └── builder.py
+│   ├── planner/               # 任务规划与编排（v0.6.0）
+│   │   ├── models.py
+│   │   ├── planner.py
+│   │   ├── executor.py
+│   │   └── tool.py
 │   ├── mcp/                   # MCP 客户端
 │   │   ├── client.py
 │   │   └── tool.py
@@ -305,6 +311,7 @@ aibes-agent/
 │   ├── readme_demo.py
 │   ├── skill_demo.py
 │   ├── mcp_demo.py
+│   ├── planner_demo.py        # Planner 使用示例
 │   └── greeting_plugin/       # Plugin 扩展示例
 ├── .aibes-agent/
 │   ├── skills/                # 项目级 Skill
@@ -327,7 +334,8 @@ aibes-agent/
     ├── MCP.md                 # MCP 使用
     ├── WEB_UI.md              # Web UI
     ├── CONFIG.md              # 配置文件
-    └── SESSION.md             # 会话持久化
+    ├── SESSION.md             # 会话持久化
+    └── PLANNER.md             # 任务规划
 ```
 
 ---
@@ -351,8 +359,8 @@ aibes-agent/
 | 0.2.0 | 子 Agent、上下文压缩增强、TaskList 增强、权限 ask 交互、工具缓存、重试、统计 |
 | 0.3.0 | ✅ MCP 支持、Web UI、Skill 系统 |
 | 0.4.0 | ✅ Plugin 机制、领域工具包（钻井工程、代码审查、文档处理） |
-| 0.5.0 | 会话与 Memory 增强 |
-| 0.6.0 | Planner 与任务编排 |
+| 0.5.0 | ✅ 会话与 Memory 增强 |
+| 0.6.0 | ✅ Planner 与任务编排 |
 | 0.7.0 | Workflow Engine |
 | 0.8.0 | 桌面 / TUI / IDE 插件 |
 | 1.0.0 | 稳定版：完整测试、文档、生产可用 |

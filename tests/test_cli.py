@@ -59,3 +59,66 @@ def test_plugins_list_discovers_plugin(tmp_path) -> None:
     assert result.exit_code == 0
     assert "demo" in result.output
     assert "Demo" in result.output
+
+
+def test_sessions_list_empty(tmp_path) -> None:
+    config = tmp_path / "cfg.yaml"
+    config.write_text(
+        f"session:\n  store: file\n  path: {tmp_path / 'sessions'}\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["sessions", "list", "--config", str(config)])
+    assert result.exit_code == 0
+    assert "No sessions found" in result.output
+
+
+def test_sessions_crud(tmp_path) -> None:
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    (sessions_dir / "s1.json").write_text(
+        '{"session_id": "s1", "messages": [], "tasks": [], "metadata": {}, "updated_at": 0}',
+        encoding="utf-8",
+    )
+
+    config = tmp_path / "cfg.yaml"
+    config.write_text(
+        f"session:\n  store: file\n  path: {sessions_dir}\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["sessions", "list", "--config", str(config)])
+    assert result.exit_code == 0
+    assert "s1" in result.output
+
+    result = runner.invoke(app, ["sessions", "delete", "s1", "--config", str(config)])
+    assert result.exit_code == 0
+    assert "Deleted session" in result.output
+
+    result = runner.invoke(app, ["sessions", "delete", "s1", "--config", str(config)])
+    assert result.exit_code == 1
+
+
+def test_sessions_clear_and_cleanup(tmp_path) -> None:
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    (sessions_dir / "old.json").write_text(
+        '{"session_id": "old", "messages": [], "tasks": [], "metadata": {}, "updated_at": 0}',
+        encoding="utf-8",
+    )
+
+    config = tmp_path / "cfg.yaml"
+    config.write_text(
+        f"session:\n  store: file\n  path: {sessions_dir}\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        ["sessions", "cleanup", "--max-age", "1", "--config", str(config)],
+    )
+    assert result.exit_code == 0
+    assert "Deleted 1 expired session" in result.output
+
+    result = runner.invoke(app, ["sessions", "clear", "--config", str(config)])
+    assert result.exit_code == 0
+    assert "All sessions cleared" in result.output

@@ -14,10 +14,10 @@ from sse_starlette.sse import EventSourceResponse
 from loguru import logger
 
 from aibes_agent.config import MinagentConfig
-from aibes_agent.core.cache import ToolResultCache
 from aibes_agent.core.router import ModelRouter
 from aibes_agent.core.session import FileSessionStore
 from aibes_agent.skills import SkillBuilder, SkillLoader
+from aibes_agent.planner import PlannerTool
 from aibes_agent.tools import (
     AgentTool,
     AnalyzeDrillingLogTool,
@@ -156,7 +156,17 @@ async def lifespan(app: FastAPI):
         router = ModelRouter.from_config(cfg.router)
 
     session_store = cfg.to_session_store()
-    tool_context = ToolContext(cwd=os.getcwd(), cache=ToolResultCache())
+    tool_context = ToolContext(cwd=os.getcwd(), cache=cfg.to_tool_result_cache())
+
+    registry.register(
+        PlannerTool(
+            llm=cfg.to_llm_client(),
+            registry=registry,
+            profiles=profiles,
+            permission_engine=cfg.to_permission_engine(),
+            tool_context=tool_context,
+        )
+    )
 
     app.state.runner = WebRunner(
         registry=registry,

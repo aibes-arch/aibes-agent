@@ -1,4 +1,4 @@
-# Example aibes-agent configuration for v0.4.0
+# Example aibes-agent configuration for v0.5.0
 
 llm:
   base_url: "http://192.168.2.179:1234/v1"
@@ -73,6 +73,15 @@ mcp_servers:
 session:
   store: file
   path: ".aibes-agent/sessions"
+  # url: "redis://localhost:6379/0"   # redis backend only
+  # ttl: 0
+
+cache:
+  store: memory
+  # store: sqlite
+  # path: ".aibes-agent/cache.db"
+  default_ttl: 60.0
+  max_size: 10000
 
 web:
   host: "127.0.0.1"

@@ -4,10 +4,12 @@ Usage:
     aibes-agent run [--yes-to-all] <script.py> [args...]
     aibes-agent web [--config path] [--host HOST] [--port PORT]
     aibes-agent plugins list [--config path] [--tools]
+    aibes-agent sessions list|delete|clear|cleanup [--config path]
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -21,6 +23,8 @@ from aibes_agent.plugins import PluginLoader
 app = typer.Typer(help="aibes-agent — minimal Python agent framework CLI")
 plugins_app = typer.Typer(help="Manage aibes-agent plugins")
 app.add_typer(plugins_app, name="plugins")
+sessions_app = typer.Typer(help="Manage aibes-agent sessions")
+app.add_typer(sessions_app, name="sessions")
 
 
 def _run_script(script_path: Path, script_args: list[str]) -> None:
@@ -176,6 +180,79 @@ def plugins_list(
             if tools:
                 line += f" tools: {', '.join(tool.name for tool in plugin.tools) or '-'}"
             typer.echo(line)
+
+
+def _load_config(config: Optional[str]) -> MinagentConfig:
+    return MinagentConfig.load(config) if config else MinagentConfig.load()
+
+
+@sessions_app.command("list")
+def sessions_list(
+    config: Annotated[
+        Optional[str],
+        typer.Option("--config", "-c", help="Path to aibes-agent.yaml"),
+    ] = None,
+) -> None:
+    """List saved sessions."""
+    cfg = _load_config(config)
+    store = cfg.to_session_store()
+    sessions = asyncio.run(store.list_sessions())
+    if not sessions:
+        typer.echo("No sessions found.")
+        return
+    for session_id in sessions:
+        typer.echo(session_id)
+
+
+@sessions_app.command("delete")
+def sessions_delete(
+    session_id: Annotated[str, typer.Argument(help="Session id to delete")],
+    config: Annotated[
+        Optional[str],
+        typer.Option("--config", "-c", help="Path to aibes-agent.yaml"),
+    ] = None,
+) -> None:
+    """Delete a single session."""
+    cfg = _load_config(config)
+    store = cfg.to_session_store()
+    existed = asyncio.run(store.delete(session_id))
+    if existed:
+        typer.echo(f"Deleted session: {session_id}")
+    else:
+        typer.echo(f"Session not found: {session_id}", err=True)
+        raise typer.Exit(code=1)
+
+
+@sessions_app.command("clear")
+def sessions_clear(
+    config: Annotated[
+        Optional[str],
+        typer.Option("--config", "-c", help="Path to aibes-agent.yaml"),
+    ] = None,
+) -> None:
+    """Delete all sessions."""
+    cfg = _load_config(config)
+    store = cfg.to_session_store()
+    asyncio.run(store.clear())
+    typer.echo("All sessions cleared.")
+
+
+@sessions_app.command("cleanup")
+def sessions_cleanup(
+    max_age: Annotated[
+        int,
+        typer.Option("--max-age", "-a", help="Maximum age in seconds"),
+    ],
+    config: Annotated[
+        Optional[str],
+        typer.Option("--config", "-c", help="Path to aibes-agent.yaml"),
+    ] = None,
+) -> None:
+    """Delete sessions older than --max-age seconds."""
+    cfg = _load_config(config)
+    store = cfg.to_session_store()
+    count = asyncio.run(store.cleanup(float(max_age)))
+    typer.echo(f"Deleted {count} expired session(s).")
 
 
 if __name__ == "__main__":

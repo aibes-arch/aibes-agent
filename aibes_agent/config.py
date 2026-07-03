@@ -13,8 +13,15 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import yaml
 
+from aibes_agent.core.cache import MemoryToolResultCache, SqliteToolResultCache, ToolResultCache
 from aibes_agent.core.llm import LLMClient
-from aibes_agent.core.session import FileSessionStore, SessionStore
+from aibes_agent.core.session import (
+    FileSessionStore,
+    MemorySessionStore,
+    RedisSessionStore,
+    SessionStore,
+    SQLiteSessionStore,
+)
 
 if TYPE_CHECKING:
     from aibes_agent.permissions.engine import PermissionEngine
@@ -105,11 +112,43 @@ class SessionConfig:
 
     store: str = "file"
     path: str = ".aibes-agent/sessions"
+    url: Optional[str] = None
+    ttl: float = 0.0
 
     def to_session_store(self) -> SessionStore:
-        if self.store == "file":
+        store = self.store.lower()
+        if store == "file":
             return FileSessionStore(self.path)
+        if store == "memory":
+            return MemorySessionStore()
+        if store == "sqlite":
+            return SQLiteSessionStore(self.path)
+        if store == "redis":
+            return RedisSessionStore(url=self.url or "redis://localhost:6379/0", ttl=self.ttl)
         raise ValueError(f"Unsupported session store: {self.store}")
+
+
+@dataclass
+class CacheConfig:
+    """Tool result cache settings."""
+
+    store: str = "memory"
+    path: str = ".aibes-agent/cache.db"
+    url: str = ""
+    default_ttl: float = 60.0
+    max_size: int = 10000
+
+    def to_tool_result_cache(self) -> ToolResultCache:
+        store = self.store.lower()
+        if store == "memory":
+            return MemoryToolResultCache(default_ttl=self.default_ttl)
+        if store == "sqlite":
+            return SqliteToolResultCache(
+                path=self.path,
+                default_ttl=self.default_ttl,
+                max_size=self.max_size,
+            )
+        raise ValueError(f"Unsupported cache store: {self.store}")
 
 
 @dataclass
@@ -131,6 +170,7 @@ class MinagentConfig:
     plugins: PluginsConfig = field(default_factory=PluginsConfig)
     mcp_servers: Dict[str, MCPServerConfig] = field(default_factory=dict)
     session: SessionConfig = field(default_factory=SessionConfig)
+    cache: CacheConfig = field(default_factory=CacheConfig)
     web: WebConfig = field(default_factory=WebConfig)
 
     @classmethod
@@ -197,6 +237,17 @@ class MinagentConfig:
         session = SessionConfig(
             store=session_data.get("store", "file"),
             path=session_data.get("path", ".aibes-agent/sessions"),
+            url=session_data.get("url"),
+            ttl=float(session_data.get("ttl", 0.0)),
+        )
+
+        cache_data = data.get("cache", {})
+        cache = CacheConfig(
+            store=cache_data.get("store", "memory"),
+            path=cache_data.get("path", ".aibes-agent/cache.db"),
+            url=cache_data.get("url", ""),
+            default_ttl=float(cache_data.get("default_ttl", 60.0)),
+            max_size=int(cache_data.get("max_size", 10000)),
         )
 
         web_data = data.get("web", {})
@@ -213,6 +264,7 @@ class MinagentConfig:
             plugins=plugins,
             mcp_servers=mcp_servers,
             session=session,
+            cache=cache,
             web=web,
         )
         cfg._apply_env_overrides()
@@ -271,3 +323,6 @@ class MinagentConfig:
 
     def to_session_store(self) -> SessionStore:
         return self.session.to_session_store()
+
+    def to_tool_result_cache(self) -> ToolResultCache:
+        return self.cache.to_tool_result_cache()

@@ -42,6 +42,22 @@ class ToolRegistry:
     def list_tools(self) -> List[str]:
         return list(self._tools.keys())
 
+    def get_tools(self) -> Dict[str, Tool]:
+        """Return a copy of the internal name->Tool mapping."""
+        return dict(self._tools)
+
+    def subset(self, tool_names: List[str]) -> "ToolRegistry":
+        """Create a new registry containing only the named tools."""
+        registry = ToolRegistry(
+            max_tool_retries=self.max_tool_retries,
+            tool_retry_delay=self.tool_retry_delay,
+        )
+        for name in tool_names:
+            tool = self._tools.get(name)
+            if tool is not None:
+                registry.register(tool)
+        return registry
+
     def to_openai_schemas(self) -> List[Dict[str, Any]]:
         return [tool.to_openai_schema() for tool in self._tools.values()]
 

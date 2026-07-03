@@ -5,8 +5,9 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from loguru import logger
 
-from aibes_agent.core.cache import ToolResultCache
+from aibes_agent.core.cache import MemoryToolResultCache
 from aibes_agent.core.context import ContextWindow, Message
+from aibes_agent.core.summarizer import SessionSummarizer
 from aibes_agent.core.llm import LLMClient
 from aibes_agent.core.router import ModelRouter
 from aibes_agent.core.session import (
@@ -50,6 +51,7 @@ class AgentLoop:
         tool_context: Optional[ToolContext] = None,
         model_router: Optional[ModelRouter] = None,
         session_store: Optional[SessionStore] = None,
+        summarizer: Optional[SessionSummarizer] = None,
     ):
         self.llm = llm
         self.registry = registry
@@ -57,9 +59,10 @@ class AgentLoop:
         self.permission_engine = permission_engine or PermissionEngine()
         self.tool_context = tool_context or ToolContext(cwd="/")
         if self.tool_context.cache is None:
-            self.tool_context.cache = ToolResultCache()
+            self.tool_context.cache = MemoryToolResultCache()
         self.model_router = model_router
         self.session_store = session_store
+        self.summarizer = summarizer
         self.stats = RunStats()
 
     async def run(
@@ -210,6 +213,10 @@ class AgentLoop:
             state = await self.session_store.load(session_id)
             if state is not None:
                 ctx = context_from_session(state)
+                if self.summarizer is not None and len(state.messages) > 6:
+                    summary = await self.summarizer.summarize(state)
+                    if summary:
+                        self.tool_context.metadata["session_summary"] = summary
                 ctx.add_user(task)
                 return ctx
 

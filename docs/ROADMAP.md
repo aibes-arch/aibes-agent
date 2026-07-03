@@ -1,6 +1,6 @@
 # aibes-agent 版本演进计划
 
-> **版本**: 0.4.0  
+> **版本**: 0.6.0  
 > **最后更新**: 2026-07-02  
 > **关联文档**: [架构设计](./ARCHITECTURE.md)、[模块设计](./MODULE_DESIGN.md)
 
@@ -26,8 +26,8 @@
 | **v0.2.0** | 子 Agent、上下文压缩增强、任务管理升级、权限 ask 交互、工具缓存、重试、统计 | ✅ 已完成 | 2026-07 |
 | **v0.3.0** | MCP 支持、Web UI、Skill 系统 | ✅ 已完成 | 2026-07 |
 | **v0.4.0** | Plugin 机制、领域工具包扩展 | ✅ 已完成 | 2026-07 |
-| **v0.5.0** | 会话与 Memory 增强 | 📋 已规划 | 待定 |
-| **v0.6.0** | Planner 与任务编排 | 📋 已规划 | 待定 |
+| **v0.5.0** | 会话与 Memory 增强 | ✅ 已完成 | 2026-07 |
+| **v0.6.0** | Planner 与任务编排 | ✅ 已完成 | 2026-07 |
 | **v0.7.0** | Workflow Engine | 📋 已规划 | 待定 |
 | **v0.8.0** | 桌面 / TUI / IDE 插件 | 📋 已规划 | 待定 |
 | **v1.0.0** | 稳定版：完整测试、文档、生产可用 | 📋 远期 | 待定 |
@@ -46,9 +46,9 @@
 | **MCP Client** | ✅ 完整 | v0.3.0 | `MCPClient` + `MCPTool`，支持 stdio/SSE |
 | **Web UI** | ✅ 完整 | v0.3.0 | FastAPI + SSE 实时界面 |
 | **Plugin Manager** | ✅ 完整 | v0.4.0 | 本地目录 + entry point 插件发现与加载 |
-| **Session 管理** | ⚠️ 部分 | v0.5.0 | 仅有 `FileSessionStore`；计划支持多后端、清理 API |
-| **Memory** | ⚠️ 有限 | v0.5.0/v0.6.0 | 仅有会话持久化 + 工具缓存；计划向量/语义记忆 |
-| **Planner** | ❌ 缺失 | v0.6.0 | 目前由 LLM 隐式规划；计划独立 Planner 模块 |
+| **Session 管理** | ✅ 完整 | v0.5.0 | 支持 file/memory/sqlite/redis 后端，提供 delete/clear/cleanup API |
+| **Memory** | ⚠️ 部分 | v0.5.0/v0.6.0 | `MemoryStore` 抽象、`InMemoryMemoryStore`、可选 `ChromaMemoryStore`、`MemoryTool`；语义 embedding 记忆为可选增强 |
+| **Planner** | ✅ 完整 | v0.6.0 | `Planner` + `PlanExecutor` + `PlannerTool`，支持计划生成、校验、依赖执行与重规划 |
 | **Workflow Engine** | ❌ 缺失 | v0.7.0 | 计划 DAG/状态机工作流引擎 |
 | **CLI / Web UI** | ✅ 完整 | v0.1.0/v0.3.0 | CLI 与 Web UI 已可用 |
 | **Desktop / GUI** | ❌ 缺失 | v0.8.0 | 计划 TUI、VS Code / JetBrains 插件 |

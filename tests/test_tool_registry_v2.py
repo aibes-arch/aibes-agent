@@ -2,7 +2,7 @@ import pytest
 
 from pydantic import BaseModel
 
-from aibes_agent.core.cache import ToolResultCache
+from aibes_agent.core.cache import MemoryToolResultCache
 from aibes_agent.core.tool_registry import ToolRegistry
 from aibes_agent.tools.base import Tool, ToolContext, ToolResult
 from aibes_agent.tools.fs import FileReadTool, FileWriteTool
@@ -32,7 +32,7 @@ async def test_registry_caches_read_only_tool(tmp_path):
     file = tmp_path / "hello.txt"
     file.write_text("world", encoding="utf-8")
 
-    cache = ToolResultCache(default_ttl=60.0)
+    cache = MemoryToolResultCache(default_ttl=60.0)
     ctx = ToolContext(cwd=str(tmp_path), cache=cache)
 
     tool_call = {
@@ -58,7 +58,7 @@ async def test_registry_does_not_cache_write_tool(tmp_path):
     registry = ToolRegistry()
     registry.register(FileWriteTool())
 
-    cache = ToolResultCache(default_ttl=60.0)
+    cache = MemoryToolResultCache(default_ttl=60.0)
     ctx = ToolContext(cwd=str(tmp_path), cache=cache)
 
     file = tmp_path / "out.txt"

@@ -1,12 +1,14 @@
+import asyncio
+
 import pytest
 
-from aibes_agent.core.cache import ToolResultCache
+from aibes_agent.core.cache import MemoryToolResultCache, SqliteToolResultCache, ToolResultCache
 from aibes_agent.tools.base import ToolResult
 
 
 @pytest.mark.asyncio
 async def test_cache_set_get():
-    cache = ToolResultCache(default_ttl=60.0)
+    cache = MemoryToolResultCache(default_ttl=60.0)
     result = ToolResult.ok("hello")
     key = cache.make_key("FileRead", {"file_path": "/tmp/a.txt"}, "/tmp")
 
@@ -19,13 +21,11 @@ async def test_cache_set_get():
 
 @pytest.mark.asyncio
 async def test_cache_expiration():
-    cache = ToolResultCache(default_ttl=0.01)
+    cache = MemoryToolResultCache(default_ttl=0.01)
     result = ToolResult.ok("hello")
     key = cache.make_key("FileRead", {"file_path": "/tmp/a.txt"}, "/tmp")
 
     cache.set(key, result)
-    import asyncio
-
     await asyncio.sleep(0.02)
     cached = cache.get(key)
     assert cached is None
@@ -33,7 +33,7 @@ async def test_cache_expiration():
 
 @pytest.mark.asyncio
 async def test_cache_clear():
-    cache = ToolResultCache()
+    cache = MemoryToolResultCache()
     cache.set("k", ToolResult.ok("v"))
     cache.clear()
     assert cache.get("k") is None
@@ -41,7 +41,12 @@ async def test_cache_clear():
 
 @pytest.mark.asyncio
 async def test_cache_key_differs_by_args():
-    cache = ToolResultCache()
+    cache = MemoryToolResultCache()
     k1 = cache.make_key("Glob", {"pattern": "*.py"}, "/tmp")
     k2 = cache.make_key("Glob", {"pattern": "*.md"}, "/tmp")
     assert k1 != k2
+
+
+def test_tool_result_cache_abstract():
+    assert issubclass(MemoryToolResultCache, ToolResultCache)
+    assert issubclass(SqliteToolResultCache, ToolResultCache)
