@@ -57,6 +57,7 @@ skills:
   auto_load: true
   paths:
     - ".aibes-agent/skills"
+    - "aibes_agent/skills"
 
 plugins:
   auto_load: true

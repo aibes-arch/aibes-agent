@@ -122,3 +122,53 @@ def test_build_profiles():
     assert "security" in profiles
     assert isinstance(profiles["security"], AgentProfile)
     assert profiles["security"].max_turns == 3
+
+
+def test_load_skill_markdown(tmp_path):
+    skill_dir = tmp_path / "markdown-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        """---
+name: markdown-skill
+description: A skill defined in SKILL.md.
+---
+
+# Markdown body
+
+This is the system prompt.
+""",
+        encoding="utf-8",
+    )
+
+    loader = SkillLoader(search_paths=[str(tmp_path)])
+    skills = loader.load_all()
+    assert len(skills) == 1
+    skill = skills[0]
+    assert skill.name == "markdown-skill"
+    assert skill.description == "A skill defined in SKILL.md."
+    assert "Markdown body" in skill.system_prompt
+    assert skill.restrict_tools is False
+
+
+def test_unrestricted_skill_keeps_all_tools():
+    """Skills without explicit tools should not empty the tool registry."""
+    skill = Skill(name="unrestricted", system_prompt="Use any tool.", restrict_tools=False)
+    builder = SkillBuilder(
+        [skill],
+        tool_pool={"FileRead": FileReadTool(), "Grep": GrepTool()},
+    )
+    registry = builder.build_registry()
+    assert registry.has("FileRead")
+    assert registry.has("Grep")
+
+
+def test_restricted_skill_with_empty_tools_has_no_tools():
+    """Explicitly restricted skills with empty tools keep the registry empty."""
+    skill = Skill(name="restricted", tools=[], restrict_tools=True)
+    builder = SkillBuilder(
+        [skill],
+        tool_pool={"FileRead": FileReadTool(), "Grep": GrepTool()},
+    )
+    registry = builder.build_registry()
+    assert not registry.has("FileRead")
+    assert not registry.has("Grep")

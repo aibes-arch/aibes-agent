@@ -29,3 +29,7 @@ class Skill:
     tools: List[str] = field(default_factory=list)
     mcp_servers: List[str] = field(default_factory=list)
     profiles: Dict[str, SkillProfile] = field(default_factory=dict)
+    # When True, only ``tools`` are available; when False, the skill does not
+    # restrict the tool pool and all built-in/MCP tools remain available.
+    # Defaults to True to keep the historical ``skill.yaml`` semantics.
+    restrict_tools: bool = True

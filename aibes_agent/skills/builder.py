@@ -45,13 +45,16 @@ class SkillBuilder:
     def build_registry(self) -> ToolRegistry:
         """Register tools referenced by skills plus all available MCP tools.
 
-        If no skills are loaded, the entire built-in tool pool is registered so
-        that a default configuration still works out of the box.
+        If no skills are loaded, or if any loaded skill does not restrict tools,
+        the entire built-in tool pool is registered so that a default
+        configuration still works out of the box.
         """
         registry = ToolRegistry()
         registered: set[str] = set()
 
-        if not self.skills:
+        unrestricted = any(not skill.restrict_tools for skill in self.skills)
+
+        if not self.skills or unrestricted:
             for tool in self.tool_pool.values():
                 registry.register(tool)
             registered.update(self.tool_pool.keys())

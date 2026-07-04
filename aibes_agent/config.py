@@ -83,7 +83,9 @@ class SkillsConfig:
     """Skill discovery settings."""
 
     auto_load: bool = True
-    paths: List[str] = field(default_factory=lambda: [".aibes-agent/skills"])
+    paths: List[str] = field(
+        default_factory=lambda: [".aibes-agent/skills", "aibes_agent/skills"]
+    )
 
 
 @dataclass
