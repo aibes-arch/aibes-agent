@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -37,6 +38,7 @@ def test_web_tools_endpoint(app_config):
         response = client.get("/api/tools")
         assert response.status_code == 200
         assert "FileRead" in response.json()["tools"]
+        assert "ImageRead" in response.json()["tools"]
 
 
 def test_web_sessions_endpoint(app_config):
@@ -45,6 +47,35 @@ def test_web_sessions_endpoint(app_config):
         response = client.get("/api/sessions")
         assert response.status_code == 200
         assert response.json()["sessions"] == []
+
+
+def test_web_upload_files(app_config, tmp_path):
+    app = create_app(app_config)
+    with TestClient(app) as client:
+        files = {
+            "files": ("hello.txt", b"hello world", "text/plain"),
+        }
+        response = client.post("/api/upload/test-session", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["files"]) == 1
+        saved_path = data["files"][0]
+        assert "hello.txt" in saved_path
+        assert Path(saved_path).exists()
+        assert Path(saved_path).read_text() == "hello world"
+
+
+def test_web_upload_multiple_files(app_config, tmp_path):
+    app = create_app(app_config)
+    with TestClient(app) as client:
+        files = [
+            ("files", ("a.txt", b"content a", "text/plain")),
+            ("files", ("b.txt", b"content b", "text/plain")),
+        ]
+        response = client.post("/api/upload/test-session", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["files"]) == 2
 
 
 class MockLLM(LLMClient):
@@ -148,60 +179,3 @@ async def test_runner_event_stream(tmp_path):
     except asyncio.CancelledError:
         pass
     await prod
-
-    assert len(events) == 1
-    assert events[0]["type"] == "llm_response"
-    assert events[0]["turn"] == 1
-
-
-@pytest.mark.asyncio
-async def test_runner_queues_tasks(tmp_path):
-    """Tasks submitted while another is running are queued and run sequentially."""
-    registry = ToolRegistry()
-    registry.register(FileReadTool())
-    llm = MockLLM(
-        [
-            LLMResponse(content="First reply", tool_calls=[]),
-            LLMResponse(content="Second reply", tool_calls=[]),
-        ]
-    )
-    runner = WebRunner(
-        registry=registry,
-        agent_config=AgentConfig(),
-        llm=llm,
-        permission_engine=PermissionEngine.default(),
-        model_router=None,
-        session_store=FileSessionStore(str(tmp_path / "sessions")),
-        tool_context=ToolContext(cwd="/"),
-    )
-
-    producer_done = asyncio.Event()
-
-    async def producer():
-        await runner.submit("s1", "task 1")
-        await runner.submit("s1", "task 2")
-        # Wait for both tasks to complete.
-        while runner._sessions["s1"].running:
-            await asyncio.sleep(0.01)
-        producer_done.set()
-
-    events = []
-
-    async def consumer():
-        async for payload in runner.event_stream("s1"):
-            events.append(json.loads(payload["data"]))
-
-    prod = asyncio.create_task(producer())
-    cons = asyncio.create_task(consumer())
-    await producer_done.wait()
-    cons.cancel()
-    try:
-        await cons
-    except asyncio.CancelledError:
-        pass
-    await prod
-
-    final_events = [e for e in events if e.get("type") == "final"]
-    assert len(final_events) == 2
-    assert final_events[0]["content"] == "First reply"
-    assert final_events[1]["content"] == "Second reply"

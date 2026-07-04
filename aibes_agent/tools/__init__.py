@@ -2,6 +2,7 @@ from aibes_agent.tools.agent import AgentProfile, AgentTool
 from aibes_agent.tools.base import Tool, ToolContext, ToolResult
 from aibes_agent.tools.code_review import CoverageTool, GitDiffTool, LintTool
 from aibes_agent.tools.documents import MarkdownMergeTool, PdfExtractTool
+from aibes_agent.tools.images import ImageReadTool
 from aibes_agent.tools.drilling import (
     AnalyzeDrillingLogTool,
     ParseWitsmlTool,
@@ -35,4 +36,5 @@ __all__ = [
     "QueryKnowledgeBaseTool",
     "PdfExtractTool",
     "MarkdownMergeTool",
+    "ImageReadTool",
 ]

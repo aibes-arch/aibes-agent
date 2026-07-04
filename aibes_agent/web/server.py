@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Optional
 
 import uuid
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
@@ -32,6 +33,7 @@ from aibes_agent.tools import (
     GitDiffTool,
     GlobTool,
     GrepTool,
+    ImageReadTool,
     LintTool,
     MarkdownMergeTool,
     ParseWitsmlTool,
@@ -66,6 +68,8 @@ HTML_PAGE = """
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>aibes_agent · Agent Chat</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     <style>
         :root {
             --bg: #f5f6f8;
@@ -234,6 +238,109 @@ HTML_PAGE = """
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
             font-size: 0.9em;
         }
+        #file-input { display: none; }
+        .file-upload-btn {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0 0.9rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            user-select: none;
+        }
+        .file-upload-btn:hover { background: var(--bg); }
+        .file-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            padding: 0.4rem 1.25rem;
+            background: var(--panel);
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .file-tag {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.2rem 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .file-tag button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1;
+        }
+        .file-tag button:hover { color: #c62828; }
+        .assistant-content {
+            line-height: 1.7;
+        }
+        .assistant-content h1, .assistant-content h2, .assistant-content h3,
+        .assistant-content h4, .assistant-content h5, .assistant-content h6 {
+            margin: 1rem 0 0.5rem;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        .assistant-content h1 { font-size: 1.5rem; }
+        .assistant-content h2 { font-size: 1.3rem; }
+        .assistant-content h3 { font-size: 1.15rem; }
+        .assistant-content p { margin: 0.5rem 0; }
+        .assistant-content ul, .assistant-content ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+        .assistant-content li { margin: 0.25rem 0; }
+        .assistant-content table {
+            border-collapse: collapse;
+            margin: 0.75rem 0;
+            width: 100%;
+        }
+        .assistant-content th, .assistant-content td {
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.6rem;
+            text-align: left;
+        }
+        .assistant-content th {
+            background: var(--bg);
+            font-weight: 600;
+        }
+        .assistant-content code {
+            background: rgba(0,0,0,0.05);
+            padding: 0.15rem 0.35rem;
+            border-radius: 4px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9em;
+        }
+        .assistant-content pre {
+            background: #263238;
+            color: #aed581;
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+        }
+        .assistant-content pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            font-size: 0.85em;
+        }
+        .assistant-content blockquote {
+            border-left: 4px solid var(--accent);
+            margin: 0.75rem 0;
+            padding: 0.25rem 0.75rem;
+            color: var(--muted);
+            background: var(--bg);
+            border-radius: 0 8px 8px 0;
+        }
     </style>
 </head>
 <body>
@@ -245,9 +352,12 @@ HTML_PAGE = """
     <div id="messages">
         <div class="empty-state">在下方输入任务，开始与 Agent 对话</div>
     </div>
+    <div class="file-list" id="file-list" style="display: none;"></div>
     <div class="input-area">
+        <input id="file-input" type="file" multiple>
+        <label for="file-input" class="file-upload-btn" id="upload-btn" title="上传文件">📎</label>
         <input id="task" type="text" placeholder="输入任务，按 Enter 发送..." autocomplete="off">
-        <button id="send">发送</button>
+        <button type="button" id="send">发送</button>
     </div>
     <script>
         const sessionId = Math.random().toString(36).slice(2);
@@ -265,6 +375,22 @@ HTML_PAGE = """
 
         const evtSource = new EventSource(`/api/events/${sessionId}`);
         const workingEl = document.getElementById('working');
+        const fileInput = document.getElementById('file-input');
+        const uploadBtn = document.getElementById('upload-btn');
+        const fileListEl = document.getElementById('file-list');
+        let uploadedFiles = []; // {name, path}
+
+        function renderMarkdown(text) {
+            if (!text) return '';
+            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                const rawHtml = marked.parse(text, {breaks: true, gfm: true});
+                return DOMPurify.sanitize(rawHtml);
+            }
+            // Fallback: plain text escape if libraries failed to load
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML.replace(/\\n/g, '<br>');
+        }
 
         function removeEmptyState() {
             const empty = messagesEl.querySelector('.empty-state');
@@ -400,7 +526,7 @@ HTML_PAGE = """
                 case 'llm_response':
                     ensureAssistantBubble();
                     if (data.content) {
-                        currentAssistantContent.textContent = data.content;
+                        currentAssistantContent.innerHTML = renderMarkdown(data.content);
                     }
                     if (data.tool_calls && data.tool_calls.length) {
                         data.tool_calls.forEach(addToolCall);
@@ -413,7 +539,7 @@ HTML_PAGE = """
                 case 'final':
                     ensureAssistantBubble();
                     if (data.content) {
-                        currentAssistantContent.textContent = data.content;
+                        currentAssistantContent.innerHTML = renderMarkdown(data.content);
                     }
                     finishAssistant();
                     updateActiveTasks(-1);
@@ -439,17 +565,72 @@ HTML_PAGE = """
             updateActiveTasks(-activeTasks);
         };
 
+        function renderFileList() {
+            if (uploadedFiles.length === 0) {
+                fileListEl.style.display = 'none';
+                fileListEl.innerHTML = '';
+                return;
+            }
+            fileListEl.style.display = 'flex';
+            fileListEl.innerHTML = '';
+            uploadedFiles.forEach((file, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'file-tag';
+                tag.innerHTML = `<span>${file.name}</span><button data-index="${index}">×</button>`;
+                tag.querySelector('button').onclick = () => {
+                    uploadedFiles.splice(index, 1);
+                    renderFileList();
+                };
+                fileListEl.appendChild(tag);
+            });
+        }
+
+        async function uploadFiles(files) {
+            if (!files.length) return;
+            const formData = new FormData();
+            for (const file of files) {
+                formData.append('files', file);
+            }
+            try {
+                const res = await fetch(`/api/upload/${sessionId}`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await res.json();
+                if (data.files) {
+                    for (let i = 0; i < data.files.length; i++) {
+                        uploadedFiles.push({name: files[i].name, path: data.files[i]});
+                    }
+                    renderFileList();
+                }
+            } catch (err) {
+                addError('上传失败: ' + err.message);
+            }
+        }
+
+        fileInput.onchange = () => {
+            const files = Array.from(fileInput.files);
+            uploadFiles(files);
+            fileInput.value = '';
+        };
+
         async function sendTask() {
             const task = taskInput.value.trim();
-            if (!task) return;
-            addUserMessage(task);
+            if (!task && uploadedFiles.length === 0) return;
+            let fullTask = task;
+            if (uploadedFiles.length > 0) {
+                const fileLines = uploadedFiles.map(f => `- ${f.path}`).join('\\n');
+                const prefix = `用户上传了以下文件：\\n${fileLines}\\n\\n`;
+                fullTask = prefix + (task || '请分析这些文件。');
+            }
+            addUserMessage(task || '[文件上传]');
             taskInput.value = '';
             updateActiveTasks(1);
             try {
                 await fetch(`/api/run/${sessionId}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({task}),
+                    body: JSON.stringify({task: fullTask}),
                 });
             } catch (err) {
                 addError('发送失败: ' + err.message);
@@ -493,6 +674,7 @@ def _built_in_tool_pool() -> Dict[str, Tool]:
         "QueryKnowledgeBase": QueryKnowledgeBaseTool(),
         "PdfExtract": PdfExtractTool(),
         "MarkdownMerge": MarkdownMergeTool(),
+        "ImageRead": ImageReadTool(),
     }
 
 
@@ -610,6 +792,23 @@ def create_app(config: Optional[MinagentConfig] = None) -> FastAPI:
     @app.get("/api/tools")
     async def list_tools() -> JSONResponse:
         return JSONResponse({"tools": app.state.runner.registry.list_tools()})
+
+    @app.post("/api/upload/{session_id}")
+    async def upload_files(session_id: str, files: list[UploadFile]):
+        """Upload files for a session and return their absolute paths."""
+        upload_dir = Path(".aibes-agent/uploads") / session_id
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        saved: list[str] = []
+        for file in files:
+            if not file.filename:
+                continue
+            # Prevent path traversal in uploaded file names
+            safe_name = Path(file.filename).name
+            dest = upload_dir / safe_name
+            content = await file.read()
+            dest.write_bytes(content)
+            saved.append(str(dest.resolve()))
+        return {"files": saved}
 
     @app.post("/api/run/{session_id}")
     async def run_task(session_id: str, request: RunRequest, background_tasks: BackgroundTasks):

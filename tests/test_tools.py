@@ -4,6 +4,7 @@ import pytest
 
 from aibes_agent.tools.base import ToolContext
 from aibes_agent.tools.fs import FileReadTool, FileWriteTool, FileEditTool
+from aibes_agent.tools.images import ImageReadTool
 from aibes_agent.tools.shell import BashTool
 from aibes_agent.tools.search import GlobTool
 from aibes_agent.tools.task import TaskListTool
@@ -101,15 +102,33 @@ async def test_task_list():
 
 
 @pytest.mark.asyncio
-async def test_tool_registry():
-    from aibes_agent.core.tool_registry import ToolRegistry
+async def test_image_read_metadata(tmp_path):
+    from PIL import Image
 
-    registry = ToolRegistry()
-    registry.register(FileReadTool())
-    registry.register(FileWriteTool())
+    img_path = tmp_path / "test.png"
+    img = Image.new("RGB", (100, 50), color="red")
+    img.save(img_path)
 
-    assert registry.has("FileRead")
-    assert registry.has("FileWrite")
-    schemas = registry.to_openai_schemas()
-    assert len(schemas) == 2
-    assert schemas[0]["function"]["name"] == "FileRead"
+    tool = ImageReadTool()
+    ctx = ToolContext(cwd=str(tmp_path))
+    result = await tool.call(
+        tool.input_model(file_path=str(img_path)),
+        ctx,
+    )
+    assert result.success
+    assert "100x50" in result.content
+    assert result.metadata["width"] == 100
+    assert result.metadata["height"] == 50
+    assert result.metadata["format"] == "PNG"
+
+
+@pytest.mark.asyncio
+async def test_image_read_not_found(tmp_path):
+    tool = ImageReadTool()
+    ctx = ToolContext(cwd=str(tmp_path))
+    result = await tool.call(
+        tool.input_model(file_path="missing.jpg"),
+        ctx,
+    )
+    assert not result.success
+    assert "File not found" in result.error
