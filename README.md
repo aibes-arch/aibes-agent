@@ -246,6 +246,27 @@ aibes-agent run examples/readme_demo.py
 aibes-agent web --config aibes-agent.yaml --host 127.0.0.1 --port 8000
 ```
 
+也提供了一键脚本，自动创建虚拟环境、安装依赖并运行：
+
+```bash
+# Windows（直接双击项目根目录 .bat 文件）
+install.bat    # 安装 / 更新
+run.bat        # 运行默认示例
+run-web.bat    # 启动 Web UI
+
+# Windows（PowerShell）
+.\scripts\install.ps1    # 安装 / 更新
+.\scripts\run.ps1        # 运行默认示例
+.\scripts\run-web.ps1    # 启动 Web UI
+
+# Linux / macOS / WSL
+./scripts/install.sh
+./scripts/run.sh
+./scripts/run-web.sh
+```
+
+详见 [`scripts/README.md`](scripts/README.md)。
+
 ---
 
 ## 六、文件结构
