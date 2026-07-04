@@ -3,6 +3,7 @@ import os
 import pytest
 
 from aibes_agent.config import (
+    MCPConfig,
     MCPServerConfig,
     MinagentConfig,
     RouterRule,
@@ -132,3 +133,15 @@ def test_mcp_server_config_defaults():
     cfg = MCPServerConfig()
     assert cfg.transport == "stdio"
     assert cfg.args == []
+
+
+def test_mcp_config_defaults():
+    cfg = MCPConfig()
+    assert cfg.enabled is True
+    assert cfg.connect_timeout == 10.0
+
+
+def test_mcp_config_from_dict():
+    cfg = MinagentConfig.from_dict({"mcp": {"enabled": False, "connect_timeout": 5.0}})
+    assert cfg.mcp.enabled is False
+    assert cfg.mcp.connect_timeout == 5.0

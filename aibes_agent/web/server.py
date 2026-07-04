@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict, Optional
@@ -498,25 +499,51 @@ def _built_in_tool_pool() -> Dict[str, Tool]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     cfg: MinagentConfig = app.state.config
+    logger.info("Web server lifespan starting...")
+
+    logger.info("Loading built-in tools...")
     tool_pool = _built_in_tool_pool()
+    logger.info("Loaded {} built-in tools", len(tool_pool))
+
     mcp_client: Optional[Any] = None
     mcp_tools: Dict[str, Tool] = {}
 
     if cfg.mcp_servers:
-        if MCPClient is None:
+        if not cfg.mcp.enabled:
+            logger.info("MCP is disabled in config, skipping MCP connection")
+        elif MCPClient is None:
             logger.warning("MCP servers configured but 'mcp' package is not installed")
         else:
+            logger.info(
+                "Connecting to MCP servers (timeout={}s): {}",
+                cfg.mcp.connect_timeout,
+                list(cfg.mcp_servers.keys()),
+            )
             try:
                 mcp_client = MCPClient(cfg.mcp_servers)
-                await mcp_client.connect()
+                # 使用 asyncio.timeout 而非 wait_for，保持同一 Task 上下文，
+                # 避免 lifespan 清理时 anyio cancel scope 的任务不匹配错误。
+                async with asyncio.timeout(cfg.mcp.connect_timeout):
+                    await mcp_client.connect()
                 mcp_tools = {name: tool for name, tool in (await mcp_client.get_tools()).items()}
-                logger.info("Connected MCP servers: {}", list(cfg.mcp_servers.keys()))
+                logger.info("Connected MCP servers: {} ({} tools)", list(cfg.mcp_servers.keys()), len(mcp_tools))
+            except TimeoutError:
+                logger.warning(
+                    "MCP connection timed out after {}s. Continuing without MCP tools. "
+                    "You can disable MCP with 'mcp.enabled: false' or increase 'mcp.connect_timeout'.",
+                    cfg.mcp.connect_timeout,
+                )
             except Exception as exc:
                 logger.warning("Failed to connect MCP servers: {}", exc)
 
+    logger.info("Loading skills...")
     skills = SkillLoader(cfg.skills.paths).load_all() if cfg.skills.auto_load else []
+    logger.info("Loaded {} skills", len(skills))
+
+    logger.info("Building skill registry...")
     builder = SkillBuilder(skills, tool_pool, mcp_tools)
     agent_config, registry, profiles = builder.build()
+    logger.info("Built registry with {} tools ({} profiles)", len(registry.list_tools()), len(profiles))
 
     if profiles:
         registry.register(
@@ -530,11 +557,14 @@ async def lifespan(app: FastAPI):
 
     router: Optional[ModelRouter] = None
     if cfg.router.default or cfg.router.rules:
+        logger.info("Initializing model router...")
         router = ModelRouter.from_config(cfg.router)
 
+    logger.info("Initializing session store...")
     session_store = cfg.to_session_store()
     tool_context = ToolContext(cwd=os.getcwd(), cache=cfg.to_tool_result_cache())
 
+    logger.info("Registering planner tool...")
     registry.register(
         PlannerTool(
             llm=cfg.to_llm_client(),
@@ -555,9 +585,13 @@ async def lifespan(app: FastAPI):
         tool_context=tool_context,
     )
     logger.info("Web runner ready with {} tools", len(registry.list_tools()))
+    logger.info("Application startup complete, waiting for requests...")
     yield
     if mcp_client is not None:
-        await mcp_client.close()
+        try:
+            await mcp_client.close()
+        except Exception as exc:
+            logger.warning("Error while closing MCP client: {}", exc)
 
 
 def create_app(config: Optional[MinagentConfig] = None) -> FastAPI:

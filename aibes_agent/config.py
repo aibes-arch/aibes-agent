@@ -107,6 +107,14 @@ class MCPServerConfig:
 
 
 @dataclass
+class MCPConfig:
+    """Global MCP client settings."""
+
+    enabled: bool = True
+    connect_timeout: float = 10.0
+
+
+@dataclass
 class SessionConfig:
     """Session persistence settings."""
 
@@ -168,6 +176,7 @@ class MinagentConfig:
     permissions: PermissionsConfig = field(default_factory=PermissionsConfig)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
     plugins: PluginsConfig = field(default_factory=PluginsConfig)
+    mcp: MCPConfig = field(default_factory=MCPConfig)
     mcp_servers: Dict[str, MCPServerConfig] = field(default_factory=dict)
     session: SessionConfig = field(default_factory=SessionConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
@@ -223,6 +232,12 @@ class MinagentConfig:
             paths=list(plugins_data.get("paths", [".aibes-agent/plugins"])),
         )
 
+        mcp_data = data.get("mcp", {})
+        mcp = MCPConfig(
+            enabled=bool(mcp_data.get("enabled", True)),
+            connect_timeout=float(mcp_data.get("connect_timeout", 10.0)),
+        )
+
         mcp_servers: Dict[str, MCPServerConfig] = {}
         for name, srv in data.get("mcp_servers", {}).items():
             mcp_servers[name] = MCPServerConfig(
@@ -262,6 +277,7 @@ class MinagentConfig:
             permissions=permissions,
             skills=skills,
             plugins=plugins,
+            mcp=mcp,
             mcp_servers=mcp_servers,
             session=session,
             cache=cache,

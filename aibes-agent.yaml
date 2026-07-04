@@ -64,6 +64,11 @@ plugins:
   paths:
     - ".aibes-agent/plugins"
 
+# MCP 全局配置
+mcp:
+  enabled: true          # 是否启动时连接 MCP 服务器
+  connect_timeout: 10.0  # 单个 MCP 服务器连接超时（秒）
+
 mcp_servers:
   filesystem:
     transport: stdio
