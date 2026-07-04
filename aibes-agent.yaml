@@ -1,0 +1,88 @@
+# Example aibes-agent configuration for v0.5.0
+
+llm:
+  base_url: "http://192.168.2.179:1234/v1"
+  api_key: "dummy"
+  model: "qwen/qwen3.6-35b-a3b"
+  timeout: 120.0
+  max_retries: 2
+  retry_delay: 1.0
+
+router:
+  default: "qwen/qwen3.6-35b-a3b"
+  rules:
+    - pattern: "^(write|edit|create).*"
+      model: "qwen/qwen3-coder-plus-32k"
+    - pattern: "^(search|read|analyze).*"
+      model: "qwen/qwen3.6-35b-a3b"
+
+permissions:
+  mode: auto
+  rules:
+    - action: allow
+      resource_type: tool
+      pattern: FileRead
+    - action: allow
+      resource_type: tool
+      pattern: Grep
+    - action: allow
+      resource_type: tool
+      pattern: Glob
+    - action: ask
+      resource_type: tool
+      pattern: FileWrite
+    - action: ask
+      resource_type: tool
+      pattern: FileEdit
+    - action: ask
+      resource_type: tool
+      pattern: Bash
+    - action: allow
+      resource_type: tool
+      pattern: TaskList
+    - action: allow
+      resource_type: filesystem
+      pattern: /c/aibes/**
+    - action: deny
+      resource_type: filesystem
+      pattern: /c/Users/Richard/AppData/**
+    - action: allow
+      resource_type: shell
+      pattern: "^git .*"
+    - action: deny
+      resource_type: shell
+      pattern: "^rm -rf /.*"
+
+skills:
+  auto_load: true
+  paths:
+    - ".aibes-agent/skills"
+
+plugins:
+  auto_load: true
+  entry_points: true
+  paths:
+    - ".aibes-agent/plugins"
+
+mcp_servers:
+  filesystem:
+    transport: stdio
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+
+session:
+  store: file
+  path: ".aibes-agent/sessions"
+  # url: "redis://localhost:6379/0"   # redis backend only
+  # ttl: 0
+
+cache:
+  store: memory
+  # store: sqlite
+  # path: ".aibes-agent/cache.db"
+  default_ttl: 60.0
+  max_size: 10000
+
+web:
+  host: "127.0.0.1"
+  port: 8000

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Dict, List, Optional
 
@@ -94,7 +95,7 @@ class WebRunner:
                 event = await queue.get()
                 if event is None:
                     break
-                yield {"event": event.get("type", "message"), "data": event}
+                yield {"data": json.dumps(event, ensure_ascii=False)}
         finally:
             self.unsubscribe(session_id, queue)
 
