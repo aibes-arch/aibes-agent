@@ -22,6 +22,7 @@ class WebSession:
 
     session_id: str
     queues: List[asyncio.Queue] = field(default_factory=list)
+    task_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
     running: bool = False
 
 
@@ -60,12 +61,59 @@ class WebRunner:
             session.queues.remove(queue)
 
     async def submit(self, session_id: str, task: str) -> None:
-        """Run an agent task and broadcast events to subscribers."""
-        session = self._get_or_create(session_id)
-        if session.running:
-            raise RuntimeError(f"Session {session_id} is already running")
+        """Queue an agent task for ``session_id``.
 
-        session.running = True
+        Tasks for the same session are executed sequentially so that they share
+        a consistent conversation context. New tasks can be submitted while
+        another task is already running.
+        """
+        session = self._get_or_create(session_id)
+        await session.task_queue.put(task)
+        if not session.running:
+            session.running = True
+            asyncio.create_task(self._worker(session_id))
+
+    async def event_stream(self, session_id: str) -> AsyncIterator[Dict[str, Any]]:
+        """Async generator yielding SSE payloads for a session.
+
+        The stream stays open across multiple queued tasks. ``None`` is used
+        internally as a task-boundary marker and is not forwarded to clients.
+        """
+        queue = self.subscribe(session_id)
+        try:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    # Task boundary marker; keep stream alive for next task.
+                    continue
+                yield {"data": json.dumps(event, ensure_ascii=False)}
+        finally:
+            self.unsubscribe(session_id, queue)
+
+    def _get_or_create(self, session_id: str) -> WebSession:
+        if session_id not in self._sessions:
+            self._sessions[session_id] = WebSession(session_id=session_id)
+        return self._sessions[session_id]
+
+    async def _worker(self, session_id: str) -> None:
+        """Process queued tasks for ``session_id`` one at a time."""
+        session = self._sessions.get(session_id)
+        if session is None:
+            return
+        try:
+            while True:
+                try:
+                    task = session.task_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    session.running = False
+                    return
+                await self._run_task(session_id, task)
+        except Exception:
+            session.running = False
+            raise
+
+    async def _run_task(self, session_id: str, task: str) -> None:
+        """Run a single agent task and broadcast events to subscribers."""
         agent = AgentLoop(
             llm=self.llm,
             registry=self.registry,
@@ -85,24 +133,6 @@ class WebRunner:
             )
         finally:
             await self._broadcast(session_id, None)
-            session.running = False
-
-    async def event_stream(self, session_id: str) -> AsyncIterator[Dict[str, Any]]:
-        """Async generator yielding SSE payloads for a session."""
-        queue = self.subscribe(session_id)
-        try:
-            while True:
-                event = await queue.get()
-                if event is None:
-                    break
-                yield {"data": json.dumps(event, ensure_ascii=False)}
-        finally:
-            self.unsubscribe(session_id, queue)
-
-    def _get_or_create(self, session_id: str) -> WebSession:
-        if session_id not in self._sessions:
-            self._sessions[session_id] = WebSession(session_id=session_id)
-        return self._sessions[session_id]
 
     async def _broadcast(self, session_id: str, event: Optional[Dict[str, Any]]) -> None:
         session = self._sessions.get(session_id)

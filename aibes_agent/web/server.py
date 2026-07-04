@@ -102,6 +102,12 @@ HTML_PAGE = """
             flex-shrink: 0;
         }
         header h1 { font-size: 1.1rem; margin: 0; color: var(--accent); }
+        header .working {
+            font-size: 0.75rem;
+            color: #2e7d32;
+            margin-left: 0.5rem;
+            font-weight: 500;
+        }
         header .meta { font-size: 0.8rem; color: var(--muted); }
         header button {
             background: transparent;
@@ -231,7 +237,7 @@ HTML_PAGE = """
 </head>
 <body>
     <header>
-        <h1>aibes_agent</h1>
+        <h1>aibes_agent <span id="working" class="working" style="display:none;">● 运行中</span></h1>
         <div class="meta">Session: <code id="session-id"></code></div>
         <button id="clear">清空会话</button>
     </header>
@@ -250,13 +256,14 @@ HTML_PAGE = """
         const sendBtn = document.getElementById('send');
         const clearBtn = document.getElementById('clear');
 
-        let isRunning = false;
+        let activeTasks = 0;
         let currentAssistantBubble = null;
         let currentAssistantContent = null;
         let currentAssistantTools = null;
         let thinkingEl = null;
 
         const evtSource = new EventSource(`/api/events/${sessionId}`);
+        const workingEl = document.getElementById('working');
 
         function removeEmptyState() {
             const empty = messagesEl.querySelector('.empty-state');
@@ -378,10 +385,9 @@ HTML_PAGE = """
             scrollToBottom();
         }
 
-        function setRunning(running) {
-            isRunning = running;
-            sendBtn.disabled = running;
-            taskInput.disabled = running;
+        function updateActiveTasks(delta) {
+            activeTasks = Math.max(0, activeTasks + delta);
+            workingEl.style.display = activeTasks > 0 ? 'inline' : 'none';
         }
 
         evtSource.onmessage = (e) => {
@@ -409,11 +415,11 @@ HTML_PAGE = """
                         currentAssistantContent.textContent = data.content;
                     }
                     finishAssistant();
-                    setRunning(false);
+                    updateActiveTasks(-1);
                     break;
                 case 'error':
                     addError(data.message || 'Unknown error');
-                    setRunning(false);
+                    updateActiveTasks(-1);
                     break;
                 case 'compact':
                     addSystemNotice('💾 上下文已压缩');
@@ -429,15 +435,15 @@ HTML_PAGE = """
 
         evtSource.onerror = () => {
             addError('SSE 连接中断');
-            setRunning(false);
+            updateActiveTasks(-activeTasks);
         };
 
         async function sendTask() {
             const task = taskInput.value.trim();
-            if (!task || isRunning) return;
+            if (!task) return;
             addUserMessage(task);
             taskInput.value = '';
-            setRunning(true);
+            updateActiveTasks(1);
             try {
                 await fetch(`/api/run/${sessionId}`, {
                     method: 'POST',
@@ -446,7 +452,7 @@ HTML_PAGE = """
                 });
             } catch (err) {
                 addError('发送失败: ' + err.message);
-                setRunning(false);
+                updateActiveTasks(-1);
             }
         }
 

@@ -125,17 +125,83 @@ async def test_runner_event_stream(tmp_path):
         tool_context=ToolContext(cwd="/"),
     )
 
+    producer_done = asyncio.Event()
+
     async def producer():
         await asyncio.sleep(0.05)
         await runner._broadcast("s1", {"type": "llm_response", "turn": 1})
         await runner._broadcast("s1", None)
+        producer_done.set()
 
-    task = asyncio.create_task(producer())
     events = []
-    async for payload in runner.event_stream("s1"):
-        events.append(json.loads(payload["data"]))
-    await task
+
+    async def consumer():
+        async for payload in runner.event_stream("s1"):
+            events.append(json.loads(payload["data"]))
+
+    prod = asyncio.create_task(producer())
+    cons = asyncio.create_task(consumer())
+    await producer_done.wait()
+    cons.cancel()
+    try:
+        await cons
+    except asyncio.CancelledError:
+        pass
+    await prod
 
     assert len(events) == 1
     assert events[0]["type"] == "llm_response"
     assert events[0]["turn"] == 1
+
+
+@pytest.mark.asyncio
+async def test_runner_queues_tasks(tmp_path):
+    """Tasks submitted while another is running are queued and run sequentially."""
+    registry = ToolRegistry()
+    registry.register(FileReadTool())
+    llm = MockLLM(
+        [
+            LLMResponse(content="First reply", tool_calls=[]),
+            LLMResponse(content="Second reply", tool_calls=[]),
+        ]
+    )
+    runner = WebRunner(
+        registry=registry,
+        agent_config=AgentConfig(),
+        llm=llm,
+        permission_engine=PermissionEngine.default(),
+        model_router=None,
+        session_store=FileSessionStore(str(tmp_path / "sessions")),
+        tool_context=ToolContext(cwd="/"),
+    )
+
+    producer_done = asyncio.Event()
+
+    async def producer():
+        await runner.submit("s1", "task 1")
+        await runner.submit("s1", "task 2")
+        # Wait for both tasks to complete.
+        while runner._sessions["s1"].running:
+            await asyncio.sleep(0.01)
+        producer_done.set()
+
+    events = []
+
+    async def consumer():
+        async for payload in runner.event_stream("s1"):
+            events.append(json.loads(payload["data"]))
+
+    prod = asyncio.create_task(producer())
+    cons = asyncio.create_task(consumer())
+    await producer_done.wait()
+    cons.cancel()
+    try:
+        await cons
+    except asyncio.CancelledError:
+        pass
+    await prod
+
+    final_events = [e for e in events if e.get("type") == "final"]
+    assert len(final_events) == 2
+    assert final_events[0]["content"] == "First reply"
+    assert final_events[1]["content"] == "Second reply"
